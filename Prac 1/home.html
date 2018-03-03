@@ -140,7 +140,7 @@
 
                 mat4.identity(mvMatrix);
 
-                mat4.translate(mvMatrix, [-1.5, 0.0, -7.0]);
+                translate(-1.5, 1.0, -7.0);
                 gl.bindBuffer(gl.ARRAY_BUFFER, triangleVertexPositionBuffer);
                 gl.vertexAttribPointer(shader_program.vertexPositionAttribute, triangleVertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
                 setMatrixUniforms();
@@ -151,6 +151,17 @@
                 gl.vertexAttribPointer(shader_program.vertexPositionAttribute, squareVertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
                 setMatrixUniforms();
                 gl.drawArrays(gl.TRIANGLE_STRIP, 0, squareVertexPositionBuffer.numItems);
+            }
+
+            function translate(a,b,c){
+                translateMatrix = [
+                    1.0, 0.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    a, b, c, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
             }
 
             function webGLStart() {
