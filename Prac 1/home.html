@@ -1,7 +1,10 @@
 <!DOCTYPE html>
     <head>
-        <script type="text/javascript" src="glMatrix-0.9.5.min.js"></script>
-        <script type="text/javascript" src="webgl-utils.js"></script>
+        <!--script>var exports = {};</script>
+        <script type="text/javascript" src="scripts/require.js"></script>
+        <!--script type="text/javascript" src="gl-matrix.js"></script-->
+        <script type="text/javascript" src="scripts/glMatrix-0.9.5.min.js"></script>
+        <script type="text/javascript" src="scripts/webgl-utils.js"></script>
         <script type="text/javascript">
             var gl;
             function intiGL(canvas) {
@@ -159,41 +162,142 @@
                 gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
                 gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+                //works with new matrix-gl
+                //mat4.perspective(pMatrix,45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0);
                 mat4.perspective(45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0, pMatrix);
 
-                mat4.identity(mvMatrix);
+                //mat4.identity(mvMatrix);
+                function createIDMatrix() {
+                    return new Float32Array (
+                        [1, 0, 0, 0,
+                         0, 1, 0, 0,
+                         0, 0, 1, 0,
+                         0, 0, 0, 1]
+                    );
+                }
 
-                translate(-1.5, 0.0, -7.0);
-
-                mvPushMatrix();
-                mat4.rotate(mvMatrix, degToRoad(rTri), [0,0,1]);
+                mvMatrix = createIDMatrix();
+                
+                mvPushMatrix();     //PUSH TRIANGLE ON
+                //mat4.rotate(mvMatrix, degToRoad(rTri), [0,0,1]);
+                translate(-1.5, 0.0, -10.0);  //Translate Triangle
+                //rotateZ(-30);
+                shearX(45);
 
                 gl.bindBuffer(gl.ARRAY_BUFFER, triangleVertexPositionBuffer);
                 gl.vertexAttribPointer(shader_program.vertexPositionAttribute, triangleVertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
                 setMatrixUniforms();
                 gl.drawArrays(gl.TRIANGLES, 0, triangleVertexPositionBuffer.numItems);
             
-                mvPopMatrix();
+                mvPopMatrix();      //POP TRIANGLE OFF
 
-                mvPushMatrix();
-                mat4.rotate(mvMatrix, degToRoad(rSquare),[1,0,0]);
+                mvPushMatrix();     //PUSH SQUARE ON
+                //mat4.rotate(mvMatrix, degToRoad(rSquare),[1,0,0]);
 
                 //mat4.translate(mvMatrix, [3.0,0.0,0.0]);
-                translate(3.0, 0.0, 0.0);
+                translate(3.0, 1.0, -10.0);       //Translate Square
+                rotateY(10);            //Rotate Square
+                scale(1,2,2);
+
                 gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
                 gl.vertexAttribPointer(shader_program.vertexPositionAttribute, squareVertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
                 setMatrixUniforms();
                 gl.drawArrays(gl.TRIANGLE_STRIP, 0, squareVertexPositionBuffer.numItems);
 
-                mvPopMatrix();
+                mvPopMatrix();      //POP SQUARE OFF
             }
 
+            //Translate Function
             function translate(a,b,c){
                 translateMatrix = [
                     1.0, 0.0, 0.0, 0.0,
                     0.0, 1.0, 0.0, 0.0,
                     0.0, 0.0, 1.0, 0.0,
                     a, b, c, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Rotate along Z-axis Function
+            function rotateZ(theta){
+                translateMatrix = [
+                    Math.cos(theta), Math.sin(theta), 0.0, 0.0,
+                    -Math.sin(theta), Math.cos(theta), 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0, 0, 0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Rotate along Y-axis Function
+            function rotateY(theta){
+                translateMatrix = [
+                    Math.cos(theta), 0.0, -Math.sin(theta), 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    Math.sin(theta), 0.0, Math.cos(theta), 0.0,
+                    0.0, 0.0, 0.0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Rotate along X-axis Function
+            function rotateX(theta){
+                translateMatrix = [
+                    1.0, 0.0, 0.0, 0.0,
+                    0.0, Math.cos(theta), Math.sin(theta), 0.0,
+                    0.0, -Math.sin(theta), Math.cos(theta), 0.0,
+                    0, 0, 0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Scale Function
+            function scale(betaX,betaY,betaZ){
+                translateMatrix = [
+                    betaX, 0.0, 0.0, 0.0,
+                    0.0, betaY, 0.0, 0.0,
+                    0.0, 0.0, betaZ, 0.0,
+                    0, 0, 0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Shear along X Axis Function
+            function shearX(theta){
+                translateMatrix = [
+                    1.0, 0.0, 0.0, 0.0,
+                    1/Math.tan(theta), 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0, 0, 0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Shear along Y Axis Function
+            function shearY(theta){
+                translateMatrix = [
+                    1.0, 0.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 1/Math.tan(theta), 1.0, 0.0,
+                    0, 0, 0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Shear along Z Axis Function
+            function shearZ(theta){
+                translateMatrix = [
+                    1.0, 0.0, 1/Math.tan(theta), 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0, 0, 0, 1.0
                 ];
 
                 mat4.multiply(mvMatrix, translateMatrix);
@@ -232,6 +336,6 @@
         </script>
     </head>
     <body onload="webGLStart();">
-        <canvas id="webgl-intro" width="500" height="500"></canvas>
+        <canvas id="webgl-intro" width="800" height="600"></canvas>
     </body>
 </html>
