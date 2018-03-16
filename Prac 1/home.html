@@ -166,7 +166,7 @@
                 translate(-1.5, 0.0, -7.0);
 
                 mvPushMatrix();
-                mat4.rotate(mvMatrix, degToRoad(rTri), [1,1,1]);
+                mat4.rotate(mvMatrix, degToRoad(rTri), [0,0,1]);
 
                 gl.bindBuffer(gl.ARRAY_BUFFER, triangleVertexPositionBuffer);
                 gl.vertexAttribPointer(shader_program.vertexPositionAttribute, triangleVertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
@@ -232,8 +232,6 @@
         </script>
     </head>
     <body onload="webGLStart();">
-        
-        Ayy
         <canvas id="webgl-intro" width="500" height="500"></canvas>
     </body>
 </html>
