@@ -419,120 +419,6 @@
                 mvPopMatrix();      //POP CUBE2 OFF
             }
 
-            
-            function drawScene() {
-
-                gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-                //works with new matrix-gl
-                //mat4.perspective(pMatrix,45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0);
-                mat4.perspective(45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0, pMatrix);
-
-                //mat4.identity(mvMatrix);
-                function createIDMatrix() {
-                    return new Float32Array (
-                        [1, 0, 0, 0,
-                         0, 1, 0, 0,
-                         0, 0, 1, 0,
-                         0, 0, 0, 1]
-                    );
-                }
-
-                mvMatrix = createIDMatrix();
-
-                ///////////////////////////
-                /////PYRAMID1//////////////
-                ///////////////////////////
-
-                mvPushMatrix();     //PUSH PYRAMID1 ON
-                //mat4.rotate(mvMatrix, degToRoad(rTri), [0,0,1]);
-                translate(-2.0 + x, -1.5 + y, z);  //Translate Triangle
-                rotateX(xRot);
-                rotateY(yRot);
-                scaleX(1 + xScale);
-                scaleY(1 + yScale);
-                shearX(xShear);
-                shearY(yShear);
-
-                gl.bindBuffer(gl.ARRAY_BUFFER, pyramid1VertexPositionBuffer);
-                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, pyramid1VertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
-                setMatrixUniforms();
-                gl.drawArrays(gl.TRIANGLES, 0, pyramid1VertexPositionBuffer.numItems);
-            
-                mvPopMatrix();      //POP PYRAMID1 OFF
-
-                ///////////////////////////
-                /////pyramd2//////////////
-                ///////////////////////////
-
-                mvPushMatrix();     //PUSH pyramid2 ON
-                //mat4.rotate(mvMatrix, degToRoad(rTri), [0,0,1]);
-                translate(2.0 + x, 1.5 + y, z);  //Translate Triangle
-                rotateX(xRot);
-                rotateY(yRot);
-                scaleX(1 + xScale);
-                scaleY(1 + yScale);     //SCALE
-                shearX(xShear);
-                shearY(yShear);
-                //shearX(45);
-
-                gl.bindBuffer(gl.ARRAY_BUFFER, pyramid2VertexPositionBuffer);
-                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, pyramid2VertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
-                setMatrixUniforms();
-                gl.drawArrays(gl.TRIANGLES, 0, pyramid2VertexPositionBuffer.numItems);
-            
-                mvPopMatrix();      //POP pyramid2 OFF
-
-                ///////////////////////////
-                /////CUBE1////////////////
-                ///////////////////////////
-                mvPushMatrix();     //PUSH CUBE1 ON
-                
-               // mat4.translate(mvMatrix, [3.0,0.0,-10.0]);
-                //mat4.rotate(mvMatrix, degToRoad(rCube1),[1,0,0]);
-                
-                translate(-2.0 + x, 1.5 + y, z);       //Translate Square
-                rotateX(xRot);
-                rotateY(yRot);            //Rotate Square
-                scaleX(1 + xScale);
-                scaleY(1 + yScale);
-                shearX(xShear);
-                shearY(yShear);
-
-                gl.bindBuffer(gl.ARRAY_BUFFER, cube1VertexPositionBuffer);
-                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, cube1VertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
-                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cube1VertexIndexBuffer);
-                setMatrixUniforms();
-                gl.drawElements(gl.TRIANGLES, cube1VertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
-
-                mvPopMatrix();      //POP CUBE1 OFF
-
-                ///////////////////////////
-                /////CUBE2////////////////
-                ///////////////////////////
-                mvPushMatrix();     //PUSH CUBE2 ON
-                //mat4.rotate(mvMatrix, degToRoad(rSquare),[1,0,0]);
-
-                //mat4.translate(mvMatrix, [3.0,0.0,0.0]);
-                translate(2.0 + x, -1.5 + y, z);       //Translate Square
-                scaleX(1 + xScale);
-                scaleY(1 + yScale);
-                rotateX(xRot);
-                rotateY(yRot);
-                shearX(xShear);
-                shearY(yShear);
-                //rotateY(45);            //Rotate Square
-
-                gl.bindBuffer(gl.ARRAY_BUFFER, cube2VertexPositionBuffer);
-                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, cube2VertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
-                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cube2VertexIndexBuffer);
-                setMatrixUniforms();
-                gl.drawElements(gl.TRIANGLES, cube2VertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
-
-                mvPopMatrix();      //POP CUBE2 OFF
-            }
-
             function drawTrain() {
 
                 gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
@@ -563,6 +449,8 @@
                 translate(-3.5, -0.4, -10.0);  //Translate Triangle
                 scaleY(-0.75);
                 scaleX(0.6);
+                rotateX(rotTY);
+                rotateY(rotTX);
 
                 gl.bindBuffer(gl.ARRAY_BUFFER, pyramid1VertexPositionBuffer);
                 gl.vertexAttribPointer(shader_program.vertexPositionAttribute, pyramid1VertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
@@ -580,7 +468,8 @@
                 translate(0.3, -0.4, -10.0);  //Translate Triangle
                 scaleX(0.3);
                 scaleY(0.7);
-                rotateY(15);
+                rotateX(rotHY);
+                rotateY(rotHX);
 
 
                 gl.bindBuffer(gl.ARRAY_BUFFER, pyramid2VertexPositionBuffer);
@@ -600,7 +489,8 @@
 
                 translate(0.0, -2.0, -10.0);       //Translate Square
                 scaleX(4);
-                rotateY(30);
+                rotateX(rotBY);
+                rotateY(rotBX);
 
                 gl.bindBuffer(gl.ARRAY_BUFFER, cube1VertexPositionBuffer);
                 gl.vertexAttribPointer(shader_program.vertexPositionAttribute, cube1VertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
@@ -620,7 +510,8 @@
                 translate(1.5, -0.25, -6.0);       //Translate Square
                 scaleY(0.8);
                 scaleX(0.4);
-                rotateY(30);
+                rotateX(rotCY);
+                rotateY(rotCX);
 
                 gl.bindBuffer(gl.ARRAY_BUFFER, cube2VertexPositionBuffer);
                 gl.vertexAttribPointer(shader_program.vertexPositionAttribute, cube2VertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
@@ -822,7 +713,7 @@
                     } 
                 }
 
-                if (event.keyCode == 81) {      //Shift-Q
+                if (event.keyCode == 81) {      //Shift-Q - Reset
                     transMode = 0;    
                     rotMode = 0;        
                     rotVar = 1;         
@@ -838,6 +729,14 @@
                     y = 0;
                     z = -10.0;
                     trainMode = false;
+                    var rotTX = 0;
+                    rotTY = 0;
+                    rotHX = 15;
+                    rotHY = 0;
+                    rotBX = 30;
+                    rotBY = 0;
+                    rotCX = 30;
+                    rotCY = 0;
                 }
 
                 if (event.keyCode == 84) {      //Shift-T
@@ -943,6 +842,59 @@
                 
             }
 
+            //////////MOUSE EVENTS////////////////
+            var mDown = false;
+            var lastMX = null;
+            var lastMY = null;
+            var rotMX = 0;
+            var rotMY = 0;
+
+            var rotTX = 0;
+            var rotTY = 0;
+            var rotHX = 15;
+            var rotHY = 0;
+            var rotBX = 30;
+            var rotBY = 0;
+            var rotCX = 30;
+            var rotCY = 0;
+
+            function handleMDown(event){
+                mDown = true;
+                lastMX = event.clientX;
+                lastMY = event.clientY;
+            }
+
+            function handleMUp(event){
+                mDown = false;
+            }
+
+            function handleMMove(event){
+                if (!mDown){
+                    return;
+                }
+
+                var newX = event.clientX;
+                var newY = event.clientY;
+                var deltaX = newX - lastMX;
+                var deltaY = newY - lastMY;
+                console.log("Pog: " + lastMY + " Y: " + newY);
+
+                rotMX = degToRoad(deltaX);
+                rotMY = degToRoad(deltaY);
+
+                rotTX += rotMX;
+                rotTY += rotMY;
+                rotHX += rotMX;
+                rotHY += rotMY;
+                rotBX += rotMX;
+                rotBY += rotMY;
+                rotCX += rotMX;
+                rotCY += rotMY;
+
+                lastMX = newX;
+                lastMY = newY;
+            }
+
             function tick(){
                 requestAnimFrame(tick);
                 handleKeys();
@@ -975,6 +927,12 @@
                 gl.clearColor(0.0,0.0,0.0,1.0);
                 gl.enable(gl.DEPTH_TEST);
 
+                // MOUSE
+                canvas.onmousedown = handleMDown;
+                document.onmouseup = handleMUp;
+                document.onmousemove = handleMMove;
+
+                // KBD
                 document.onkeydown = handleKeyDown;
                 document.onkeyup = handleKeyUp;
                 document.onkeypress = handleKeyPress;
