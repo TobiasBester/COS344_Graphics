@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+    <head>
+        <!--script>var exports = {};</script>
+        <script type="text/javascript" src="scripts/require.js"></script>
+        <!--script type="text/javascript" src="gl-matrix.js"></script-->
+        <script type="text/javascript" src="scripts/glMatrix-0.9.5.min.js"></script>
+        <script type="text/javascript" src="scripts/webgl-utils.js"></script>
+        <script type="text/javascript">
+            var gl;
+            function intiGL(canvas) {
+                try {
+                    gl = canvas.getContext("webgl");
+                    gl.viewportWidth = canvas.width;
+                    gl.viewportHeight = canvas.height;
+                }
+                catch(e){
+
+                }
+                if (!gl){
+                    alert("Could not initialise WebGL!");
+                }
+            }
+        </script>
+        <script id="shader-vs" type="x-shader/x-vertex">
+            attribute vec3 vertexPosition;
+
+            uniform mat4 uMVMatrix;
+            uniform mat4 uPMatrix;
+
+            void main(void) {
+                gl_Position = uPMatrix * uMVMatrix * vec4(vertexPosition, 1.0);
+            }
+        </script>
+        <script id="shader-fs" type="x-shader/x-fragment">
+            precision mediump float;
+
+            void main(void){
+                gl_FragColor = vec4(0.2,0.4,0.5,1.0);
+            }
+        </script>
+        <script type="text/javascript">
+            function getShader(gl, id){
+                var shaderScript = document.getElementById(id);
+                if (!shaderScript) {
+                    return null;
+                }
+                var str ="";
+                var k = shaderScript.firstChild;
+                while(k){
+                    if (k.nodeType == 3){
+                        str += k.textContent;
+                    }
+                    k = k.nextSibling;
+                }
+            
+
+                var shader;
+                if (shaderScript.type == "x-shader/x-fragment"){
+                    shader = gl.createShader(gl.FRAGMENT_SHADER);
+                } else if (shaderScript.type == "x-shader/x-vertex") {
+                    shader = gl.createShader(gl.VERTEX_SHADER);
+                } else {
+                    return null;
+                }
+
+                gl.shaderSource(shader,str);
+                gl.compileShader(shader);
+
+                if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                    alert(gl.getShaderInfoLog(shader));
+                    return null;
+                }
+
+                return shader;
+            }
+        </script>
+        <script>
+            var shader_program;
+
+            function initShaders(){
+                var fragmentShader = getShader(gl, "shader-fs");
+                var vertexShader = getShader(gl, "shader-vs");
+
+                shader_program = gl.createProgram();
+                gl.attachShader(shader_program,vertexShader);
+                gl.attachShader(shader_program,fragmentShader);
+                gl.linkProgram(shader_program);
+
+                if (!gl.getProgramParameter(shader_program, gl.LINK_STATUS)){
+                    alert("Could_not_initialise_shaders");
+                }
+
+                gl.useProgram(shader_program);
+                
+                shader_program.vertexPositionAttribute = gl.getAttribLocation(shader_program,"vertexPosition");
+                gl.enableVertexAttribArray(shader_program.vertexPositionAttribute);
+
+                shader_program.pMatrixLocation = gl.getUniformLocation(shader_program,"uPMatrix");
+                shader_program.mvMatrixLocation = gl.getUniformLocation(shader_program, "uMVMatrix");
+            }
+        </script>
+        <script>
+            var mvMatrix = mat4.create();
+            var mvMatrixStack = [];
+            var pMatrix = mat4.create();
+
+            function mvPushMatrix(){
+                var copy = mat4.create();
+                mat4.set(mvMatrix, copy);
+                mvMatrixStack.push(copy);
+            }
+
+            function mvPopMatrix(){
+                if (mvMatrixStack.length == 0){
+                    throw "Invalid popMatrix!";
+                }
+                mvMatrix = mvMatrixStack.pop();
+            }
+
+            function degToRoad(degrees){
+                return degrees * Math.PI/ 180;
+            }
+
+            function setMatrixUniforms() {
+                gl.uniformMatrix4fv(shader_program.pMatrixLocation, false, pMatrix);
+                gl.uniformMatrix4fv(shader_program.mvMatrixLocation, false, mvMatrix);
+            }
+
+            //Object Definitions
+            var pyramid1VertexPositionBuffer;
+            var cube1VertexPositionBuffer;
+            var cube1VertexIndexBuffer;
+
+            var pyramid2VertexPositionBuffer;
+            var cube2VertexPositionBuffer;
+            var cube2VertexIndexBuffer;
+
+            function initBuffers() {
+                pyramid1VertexPositionBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, pyramid1VertexPositionBuffer);
+                var vertices = [
+                    // Front face
+                    0.0,  1.0,  0.0,
+                    -1.0, -1.0,  1.0,
+                    1.0, -1.0,  1.0,
+                    // Right face
+                    0.0,  1.0,  0.0,
+                    1.0, -1.0,  1.0,
+                    1.0, -1.0, -1.0,
+                    // Back face
+                    0.0,  1.0,  0.0,
+                    1.0, -1.0, -1.0,
+                    -1.0, -1.0, -1.0,
+                    // Left face
+                    0.0,  1.0,  0.0,
+                    -1.0, -1.0, -1.0,
+                    -1.0, -1.0,  1.0
+                ];
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+                pyramid1VertexPositionBuffer.itemSize = 3;
+                pyramid1VertexPositionBuffer.numItems = 12;
+
+                pyramid2VertexPositionBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, pyramid2VertexPositionBuffer);
+                var vertices = [
+                    // Front face
+                    0.0,  1.0,  0.0,
+                    -1.0, -1.0,  1.0,
+                    1.0, -1.0,  1.0,
+                    // Right face
+                    0.0,  1.0,  0.0,
+                    1.0, -1.0,  1.0,
+                    1.0, -1.0, -1.0,
+                    // Back face
+                    0.0,  1.0,  0.0,
+                    1.0, -1.0, -1.0,
+                    -1.0, -1.0, -1.0,
+                    // Left face
+                    0.0,  1.0,  0.0,
+                    -1.0, -1.0, -1.0,
+                    -1.0, -1.0,  1.0
+                ];
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+                pyramid2VertexPositionBuffer.itemSize = 3;
+                pyramid2VertexPositionBuffer.numItems = 12;
+
+                cube1VertexPositionBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER,cube1VertexPositionBuffer);
+                vertices = [
+                    // Front face
+                    -1.0, -1.0,  1.0,
+                    1.0, -1.0,  1.0,
+                    1.0,  1.0,  1.0,
+                    -1.0,  1.0,  1.0,
+
+                    // Back face
+                    -1.0, -1.0, -1.0,
+                    -1.0,  1.0, -1.0,
+                    1.0,  1.0, -1.0,
+                    1.0, -1.0, -1.0,
+
+                    // Top face
+                    -1.0,  1.0, -1.0,
+                    -1.0,  1.0,  1.0,
+                    1.0,  1.0,  1.0,
+                    1.0,  1.0, -1.0,
+
+                    // Bottom face
+                    -1.0, -1.0, -1.0,
+                    1.0, -1.0, -1.0,
+                    1.0, -1.0,  1.0,
+                    -1.0, -1.0,  1.0,
+
+                    // Right face
+                    1.0, -1.0, -1.0,
+                    1.0,  1.0, -1.0,
+                    1.0,  1.0,  1.0,
+                    1.0, -1.0,  1.0,
+
+                    // Left face
+                    -1.0, -1.0, -1.0,
+                    -1.0, -1.0,  1.0,
+                    -1.0,  1.0,  1.0,
+                    -1.0,  1.0, -1.0,
+                ];
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+                cube1VertexPositionBuffer.itemSize = 3;
+                cube1VertexPositionBuffer.numItems = 24;
+
+                //Define element array buffer
+                cube1VertexIndexBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cube1VertexIndexBuffer);
+                var cube1VertexIndices = [
+                    0, 1, 2,      0, 2, 3,    // Front face
+                    4, 5, 6,      4, 6, 7,    // Back face
+                    8, 9, 10,     8, 10, 11,  // Top face
+                    12, 13, 14,   12, 14, 15, // Bottom face
+                    16, 17, 18,   16, 18, 19, // Right face
+                    20, 21, 22,   20, 22, 23  // Left face
+                ]
+                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cube1VertexIndices), gl.STATIC_DRAW);
+                cube1VertexIndexBuffer.itemSize = 1;
+                cube1VertexIndexBuffer.numItems = 36;
+
+                cube2VertexPositionBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER,cube2VertexPositionBuffer);
+                vertices = [
+                    // Front face
+                    -1.0, -1.0,  1.0,
+                    1.0, -1.0,  1.0,
+                    1.0,  1.0,  1.0,
+                    -1.0,  1.0,  1.0,
+
+                    // Back face
+                    -1.0, -1.0, -1.0,
+                    -1.0,  1.0, -1.0,
+                    1.0,  1.0, -1.0,
+                    1.0, -1.0, -1.0,
+
+                    // Top face
+                    -1.0,  1.0, -1.0,
+                    -1.0,  1.0,  1.0,
+                    1.0,  1.0,  1.0,
+                    1.0,  1.0, -1.0,
+
+                    // Bottom face
+                    -1.0, -1.0, -1.0,
+                    1.0, -1.0, -1.0,
+                    1.0, -1.0,  1.0,
+                    -1.0, -1.0,  1.0,
+
+                    // Right face
+                    1.0, -1.0, -1.0,
+                    1.0,  1.0, -1.0,
+                    1.0,  1.0,  1.0,
+                    1.0, -1.0,  1.0,
+
+                    // Left face
+                    -1.0, -1.0, -1.0,
+                    -1.0, -1.0,  1.0,
+                    -1.0,  1.0,  1.0,
+                    -1.0,  1.0, -1.0,
+                ];
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+                cube2VertexPositionBuffer.itemSize = 3;
+                cube2VertexPositionBuffer.numItems = 24;
+
+                //Define element array buffer
+                cube2VertexIndexBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cube2VertexIndexBuffer);
+                var cube2VertexIndices = [
+                    0, 1, 2,      0, 2, 3,    // Front face
+                    4, 5, 6,      4, 6, 7,    // Back face
+                    8, 9, 10,     8, 10, 11,  // Top face
+                    12, 13, 14,   12, 14, 15, // Bottom face
+                    16, 17, 18,   16, 18, 19, // Right face
+                    20, 21, 22,   20, 22, 23  // Left face
+                ]
+                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cube2VertexIndices), gl.STATIC_DRAW);
+                cube2VertexIndexBuffer.itemSize = 1;
+                cube2VertexIndexBuffer.numItems = 36;
+            }
+
+            var rPyramid1 = 0;       //used to track rotation
+            var rPyramid2 = 0;
+            var rCube1 = 0;
+            var rCube2 = 0;
+
+            function drawScene() {
+
+                gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+                //works with new matrix-gl
+                //mat4.perspective(pMatrix,45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0);
+                mat4.perspective(45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0, pMatrix);
+
+                //mat4.identity(mvMatrix);
+                function createIDMatrix() {
+                    return new Float32Array (
+                        [1, 0, 0, 0,
+                         0, 1, 0, 0,
+                         0, 0, 1, 0,
+                         0, 0, 0, 1]
+                    );
+                }
+
+                mvMatrix = createIDMatrix();
+
+                ///////////////////////////
+                /////PYRAMID1//////////////
+                ///////////////////////////
+
+                mvPushMatrix();     //PUSH PYRAMID1 ON
+                //mat4.rotate(mvMatrix, degToRoad(rTri), [0,0,1]);
+                translate(-2.0 + x, -1.5 + y, z);  //Translate Triangle
+                rotateX(xRot);
+                rotateY(yRot);
+                scaleX(1 + xScale);
+                scaleY(1 + yScale);
+                shearX(xShear);
+                shearY(yShear);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, pyramid1VertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, pyramid1VertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
+                setMatrixUniforms();
+                gl.drawArrays(gl.TRIANGLES, 0, pyramid1VertexPositionBuffer.numItems);
+            
+                mvPopMatrix();      //POP PYRAMID1 OFF
+
+                ///////////////////////////
+                /////pyramd2//////////////
+                ///////////////////////////
+
+                mvPushMatrix();     //PUSH pyramid2 ON
+                //mat4.rotate(mvMatrix, degToRoad(rTri), [0,0,1]);
+                translate(2.0 + x, 1.5 + y, z);  //Translate Triangle
+                rotateX(xRot);
+                rotateY(yRot);
+                scaleX(1 + xScale);
+                scaleY(1 + yScale);     //SCALE
+                shearX(xShear);
+                shearY(yShear);
+                //shearX(45);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, pyramid2VertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, pyramid2VertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
+                setMatrixUniforms();
+                gl.drawArrays(gl.TRIANGLES, 0, pyramid2VertexPositionBuffer.numItems);
+            
+                mvPopMatrix();      //POP pyramid2 OFF
+
+                ///////////////////////////
+                /////CUBE1////////////////
+                ///////////////////////////
+                mvPushMatrix();     //PUSH CUBE1 ON
+                
+               // mat4.translate(mvMatrix, [3.0,0.0,-10.0]);
+                //mat4.rotate(mvMatrix, degToRoad(rCube1),[1,0,0]);
+                
+                translate(-2.0 + x, 1.5 + y, z);       //Translate Square
+                rotateX(xRot);
+                rotateY(yRot);            //Rotate Square
+                scaleX(1 + xScale);
+                scaleY(1 + yScale);
+                shearX(xShear);
+                shearY(yShear);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, cube1VertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, cube1VertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cube1VertexIndexBuffer);
+                setMatrixUniforms();
+                gl.drawElements(gl.TRIANGLES, cube1VertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+                mvPopMatrix();      //POP CUBE1 OFF
+
+                ///////////////////////////
+                /////CUBE2////////////////
+                ///////////////////////////
+                mvPushMatrix();     //PUSH CUBE2 ON
+                //mat4.rotate(mvMatrix, degToRoad(rSquare),[1,0,0]);
+
+                //mat4.translate(mvMatrix, [3.0,0.0,0.0]);
+                translate(2.0 + x, -1.5 + y, z);       //Translate Square
+                scaleX(1 + xScale);
+                scaleY(1 + yScale);
+                rotateX(xRot);
+                rotateY(yRot);
+                shearX(xShear);
+                shearY(yShear);
+                //rotateY(45);            //Rotate Square
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, cube2VertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, cube2VertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cube2VertexIndexBuffer);
+                setMatrixUniforms();
+                gl.drawElements(gl.TRIANGLES, cube2VertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+                mvPopMatrix();      //POP CUBE2 OFF
+            }
+
+            function drawTrain() {
+
+                gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+                //works with new matrix-gl
+                //mat4.perspective(pMatrix,45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0);
+                mat4.perspective(45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0, pMatrix);
+
+                //mat4.identity(mvMatrix);
+                function createIDMatrix() {
+                    return new Float32Array (
+                        [1, 0, 0, 0,
+                        0, 1, 0, 0,
+                        0, 0, 1, 0,
+                        0, 0, 0, 1]
+                    );
+                }
+
+                mvMatrix = createIDMatrix();
+
+                ///////////////////////////
+                /////TOOT TOOT//////////////
+                ///////////////////////////
+
+                mvPushMatrix();     //PUSH PYRAMID1 ON
+                //mat4.rotate(mvMatrix, degToRoad(rTri), [0,0,1]);
+                translate(-3.5, -0.4, -10.0);  //Translate Triangle
+                scaleY(-0.75);
+                scaleX(0.6);
+                rotateX(rotTY);
+                rotateY(rotTX);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, pyramid1VertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, pyramid1VertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
+                setMatrixUniforms();
+                gl.drawArrays(gl.TRIANGLES, 0, pyramid1VertexPositionBuffer.numItems);
+
+                mvPopMatrix();      //POP PYRAMID1 OFF
+
+                ///////////////////////////
+                /////HAT//////////////
+                ///////////////////////////
+
+                mvPushMatrix();     //PUSH pyramid2 ON
+                //mat4.rotate(mvMatrix, degToRoad(rTri), [0,0,1]);
+                translate(0.3, -0.4, -10.0);  //Translate Triangle
+                scaleX(0.3);
+                scaleY(0.7);
+                rotateX(rotHY);
+                rotateY(rotHX);
+
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, pyramid2VertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, pyramid2VertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
+                setMatrixUniforms();
+                gl.drawArrays(gl.TRIANGLES, 0, pyramid2VertexPositionBuffer.numItems);
+
+                mvPopMatrix();      //POP pyramid2 OFF
+
+                ///////////////////////////
+                /////TRAIN BODY////////////
+                ///////////////////////////
+                mvPushMatrix();     //PUSH CUBE1 ON
+
+                // mat4.translate(mvMatrix, [3.0,0.0,-10.0]);
+                //mat4.rotate(mvMatrix, degToRoad(rCube1),[1,0,0]);
+
+                translate(0.0, -2.0, -10.0);       //Translate Square
+                scaleX(4);
+                rotateX(rotBY);
+                rotateY(rotBX);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, cube1VertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, cube1VertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cube1VertexIndexBuffer);
+                setMatrixUniforms();
+                gl.drawElements(gl.TRIANGLES, cube1VertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+                mvPopMatrix();      //POP CUBE1 OFF
+
+                ///////////////////////////
+                /////CABIN////////////////
+                ///////////////////////////
+                mvPushMatrix();     //PUSH CUBE2 ON
+                //mat4.rotate(mvMatrix, degToRoad(rSquare),[1,0,0]);
+
+                //mat4.translate(mvMatrix, [3.0,0.0,0.0]);
+                translate(1.5, -0.25, -6.0);       //Translate Square
+                scaleY(0.8);
+                scaleX(0.4);
+                rotateX(rotCY);
+                rotateY(rotCX);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, cube2VertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, cube2VertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cube2VertexIndexBuffer);
+                setMatrixUniforms();
+                gl.drawElements(gl.TRIANGLES, cube2VertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+                mvPopMatrix();      //POP CUBE2 OFF
+                }
+
+            //////////////////////////////////////
+            //////////TRANSFORMATIONS/////////////
+            //////////////////////////////////////
+
+            //Translate Function
+            function translate(a,b,c){
+                translateMatrix = [
+                    1.0, 0.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    a, b, c, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Rotate along Z-axis Function
+            function rotateZ(theta){
+                translateMatrix = [
+                    Math.cos(theta), Math.sin(theta), 0.0, 0.0,
+                    -Math.sin(theta), Math.cos(theta), 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0, 0, 0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Rotate along Y-axis Function
+            function rotateY(theta){
+                translateMatrix = [
+                    Math.cos(theta), 0.0, -Math.sin(theta), 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    Math.sin(theta), 0.0, Math.cos(theta), 0.0,
+                    0.0, 0.0, 0.0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Rotate along X-axis Function
+            function rotateX(theta){
+                translateMatrix = [
+                    1.0, 0.0, 0.0, 0.0,
+                    0.0, Math.cos(theta), Math.sin(theta), 0.0,
+                    0.0, -Math.sin(theta), Math.cos(theta), 0.0,
+                    0, 0, 0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Scale along X axis Function
+            function scaleX(beta){
+                translateMatrix = [
+                    beta, 0.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0, 0, 0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Scale along Y axis Function
+            function scaleY(beta){
+                translateMatrix = [
+                    1.0, 0.0, 0.0, 0.0,
+                    0.0, beta, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0, 0, 0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Scale along Z axis Function
+            function scaleZ(beta){
+                translateMatrix = [
+                    1.0, 0.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 0.0, beta, 0.0,
+                    0, 0, 0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Shear along X Axis Function
+            function shearX(theta){
+                translateMatrix = [
+                    1.0, 0.0, 0.0, 0.0,
+                    1/Math.tan(theta), 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0, 0, 0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Shear along Y Axis Function
+            function shearY(theta){
+                translateMatrix = [
+                    1.0, 0.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 1/Math.tan(theta), 1.0, 0.0,
+                    0, 0, 0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Shear along Z Axis Function
+            function shearZ(theta){
+                translateMatrix = [
+                    1.0, 0.0, 1/Math.tan(theta), 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0, 0, 0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+        </script>
+        <script>
+
+            //////////KBD EVENTS////////////////
+
+            var transMode = 0;      //0 - all, 1 - scale, 2 - rotate, 3 - shear, 4 - translate
+            var rotMode = 0;        //0 - clockwise, 1 - anticlockwise
+            var rotVar = 1;         //1 - clockwise, -1 - anticlockwise
+            var xRot = 0;
+            var yRot = 0;
+            var xSpeed = 0;
+            var ySpeed = 0;
+            var xScale = 0;
+            var yScale = 0;
+            var xShear = 30;
+            var yShear = 30;
+            var x = 0;
+            var y = 0;
+            var z = -10.0;
+            var trainMode = false;
+
+            var currentlyPressedKeys = {};
+
+            function handleKeyPress(event){
+                if (event.keyCode == 32){
+                    console.log(++transMode);
+                    switch (transMode % 5) {
+                        case 0: {
+                            console.log("All transformations");
+                            document.getElementById("infoBar").innerText = "All transformations: Use PgUp, PgDn to Zoom Out/In. Use the cursor keys to rotate.";
+                            break;
+                        }
+                        case 1: {
+                            console.log("Scale");
+                            document.getElementById("infoBar").innerText = "Scale: Use the cursor keys to scale around the axes.";
+                            break;
+                        }
+                        case 2: {
+                            console.log("Rotate");
+                            document.getElementById("infoBar").innerHTML = "Rotate: Use the cursor keys to rotate around the axes." +
+                            "<p> Press Shift-R to toggle clockwise/anticlockwise </p>";
+                            break;
+                        }
+                        case 3: {
+                            console.log("Shear");
+                            document.getElementById("infoBar").innerText = "Shear: Use the cursor keys to shear around the axes.";
+                            break;
+                        }
+                        case 4: {
+                            console.log("Translate");
+                            document.getElementById("infoBar").innerText = "Translate: Use the cursor keys to translate around the axes.";
+                            break;
+                        }
+
+                    }
+
+                }
+                if (event.keyCode == 82) {      //Shift-R
+                    ++rotMode;
+                    if (rotMode % 2 == 0){
+                        rotVar = 1;
+                        console.log("Clockwise");
+                    } else {
+                        rotVar = -1;
+                        console.log("Anticlockwise");
+                    } 
+                }
+
+                if (event.keyCode == 81) {      //Shift-Q - Reset
+                    transMode = 0;    
+                    rotMode = 0;        
+                    rotVar = 1;         
+                    xRot = 0;
+                    yRot = 0;
+                    xSpeed = 0;
+                    ySpeed = 0;
+                    xScale = 0;
+                    yScale = 0;
+                    xShear = 30;
+                    yShear = 30;
+                    x = 0;
+                    y = 0;
+                    z = -10.0;
+                    trainMode = false;
+                    var rotTX = 0;
+                    rotTY = 0;
+                    rotHX = 15;
+                    rotHY = 0;
+                    rotBX = 30;
+                    rotBY = 0;
+                    rotCX = 30;
+                    rotCY = 0;
+                }
+
+                if (event.keyCode == 84) {      //Shift-T
+                    trainMode = true;
+                }
+            }
+
+            function handleKeyDown(event){
+                currentlyPressedKeys[event.keyCode] = true;
+            }
+
+            function handleKeyUp(event){
+                currentlyPressedKeys[event.keyCode] = false;
+            }
+
+            function handleKeys(){
+                switch (transMode % 5) {
+                    case 0: {           //All
+                        if (currentlyPressedKeys[33]) {     //PgUp
+                            z -= 0.05;
+                        }
+                        if (currentlyPressedKeys[34]) {     //PgDn
+                            z += 0.05;
+                        }
+                        if (currentlyPressedKeys[37]) {     //Left cursor
+                            ySpeed -= 1;
+                        }
+                        if (currentlyPressedKeys[39]) {     //Right cursor
+                            ySpeed += 1;
+                        }
+                        if (currentlyPressedKeys[38]) {     //Up cursor
+                            xSpeed -= 1;
+                        }
+                        if (currentlyPressedKeys[40]) {     //Down cursor
+                            xSpeed += 1;
+                        }
+                        break;
+                    }
+                    case 1: {           //Scale
+                        if (currentlyPressedKeys[37]) {     //Left cursor
+                            xScale -= 0.1;
+                        }
+                        if (currentlyPressedKeys[39]) {     //Right cursor
+                            xScale += 0.1;
+                        }
+                        if (currentlyPressedKeys[38]) {     //Up cursor
+                            yScale -= 0.1;
+                        }
+                        if (currentlyPressedKeys[40]) {     //Down cursor
+                            yScale += 0.1;
+                        }
+                        break;
+                    }
+                    case 2: {           //Rotate
+                        if (currentlyPressedKeys[37]) {     //Left cursor
+                            ySpeed -= 1;
+                        }
+                        if (currentlyPressedKeys[39]) {     //Right cursor
+                            ySpeed += 1;
+                        }
+                        if (currentlyPressedKeys[38]) {     //Up cursor
+                            xSpeed -= 1;
+                        }
+                        if (currentlyPressedKeys[40]) {     //Down cursor
+                            xSpeed += 1;
+                        }
+                        break;
+                    }
+
+                    case 3: {           //Shear
+                        if (currentlyPressedKeys[37]) {     //Left cursor
+                            xShear -= 15;
+                        }
+                        if (currentlyPressedKeys[39]) {     //Right cursor
+                            xShear += 15;
+                        }
+                        if (currentlyPressedKeys[38]) {     //Up cursor
+                            yShear -= 15;
+                        }
+                        if (currentlyPressedKeys[40]) {     //Down cursor
+                            yShear += 15;
+                        }
+                        break;
+                    }
+
+                    case 4: {           //Translate
+                        if (currentlyPressedKeys[37]) {     //Left cursor
+                            x -= 0.2;
+                        }
+                        if (currentlyPressedKeys[39]) {     //Right cursor
+                            x += 0.2;
+                        }
+                        if (currentlyPressedKeys[38]) {     //Up cursor
+                            y += 0.2;
+                        }
+                        if (currentlyPressedKeys[40]) {     //Down cursor
+                            y -= 0.2;
+                        }
+                        break;
+                    }
+                }
+
+                
+            }
+
+            //////////MOUSE EVENTS////////////////
+            var mDown = false;
+            var lastMX = null;
+            var lastMY = null;
+            var rotMX = 0;
+            var rotMY = 0;
+
+            var rotTX = 0;
+            var rotTY = 0;
+            var rotHX = 15;
+            var rotHY = 0;
+            var rotBX = 30;
+            var rotBY = 0;
+            var rotCX = 30;
+            var rotCY = 0;
+
+            function handleMDown(event){
+                mDown = true;
+                lastMX = event.clientX;
+                lastMY = event.clientY;
+            }
+
+            function handleMUp(event){
+                mDown = false;
+            }
+
+            function handleMMove(event){
+                if (!mDown){
+                    return;
+                }
+
+                var newX = event.clientX;
+                var newY = event.clientY;
+                var deltaX = newX - lastMX;
+                var deltaY = newY - lastMY;
+                console.log("Pog: " + lastMY + " Y: " + newY);
+
+                rotMX = degToRoad(deltaX);
+                rotMY = degToRoad(deltaY);
+
+                rotTX += rotMX;
+                rotTY += rotMY;
+                rotHX += rotMX;
+                rotHY += rotMY;
+                rotBX += rotMX;
+                rotBY += rotMY;
+                rotCX += rotMX;
+                rotCY += rotMY;
+
+                lastMX = newX;
+                lastMY = newY;
+            }
+
+            function tick(){
+                requestAnimFrame(tick);
+                handleKeys();
+                if (trainMode){
+                    drawTrain();
+                } else {
+                    drawScene();
+                }
+                animate();
+            }
+
+            var lastTime = 0;
+            function animate(){
+                var timeNow = new Date().getTime();
+                if (lastTime != 0){
+                    var elapsed = timeNow - lastTime;
+
+                    xRot += (rotVar*xSpeed * elapsed)/1000.0;
+                    yRot -= (rotVar*ySpeed * elapsed)/1000.0;
+                }
+                lastTime = timeNow;
+            }
+
+            function webGLStart() {
+                var canvas = document.getElementById("webgl-intro");
+                intiGL(canvas);
+                initShaders();
+                initBuffers();
+
+                gl.clearColor(0.0,0.0,0.0,1.0);
+                gl.enable(gl.DEPTH_TEST);
+
+                // MOUSE
+                canvas.onmousedown = handleMDown;
+                document.onmouseup = handleMUp;
+                document.onmousemove = handleMMove;
+
+                // KBD
+                document.onkeydown = handleKeyDown;
+                document.onkeyup = handleKeyUp;
+                document.onkeypress = handleKeyPress;
+
+                tick();
+            }
+        </script>
+    </head>
+    <body onload="webGLStart();">
+        <h2 >Press space to change transformation type. Press Shift-Q to Reset. Press Shift-T to Train.</h2>
+        <canvas id="webgl-intro" width="800" height="600"></canvas>
+        <h3 id="infoBar">All Transformations: Use PgUp, PgDn to Zoom Out/In. Use the cursor keys to rotate
+        </h3>
+    </body>
+</html>
