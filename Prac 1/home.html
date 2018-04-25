@@ -221,10 +221,26 @@
 
                 gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
                 gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-                //works with new matrix-gl
-                //mat4.perspective(pMatrix,45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0);
-                mat4.perspective(45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0, pMatrix);
+                
+/*
+                pMatrix = {
+                    createOrthographic: function(left, right, bottom, top, near, far) {
+                        return [
+                            2/(right-left), 0, 0, 0,
+                            0, 2/(top-bottom), 0, 0,
+                            0, 0, 2/(near-far), 0,
+                            (left+right)/(left-right), (bottom+top)/(bottom-top), (near+far)/(near-far), 1 
+                        ];
+                    }
+                }*/
+                //pMatrix = createIDMatrix();
+                //console.log("First"+ pMatrix);
+                createOrthographic(0, gl.canvas.clientWidth, gl.canvas.clientHeight, 0, 400, 200);
+                console.log("After"+ pMatrix);
+                //mat4.ortho(0, gl.canvas.clientWidth, gl.canvas.clientHeight, 0, 400, -400, pMatrix);
+                //console.log("Secon"+ pMatrix);
+                //mat4.perspective(45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0, pMatrix);
+                //console.log("Third"+ pMatrix);
 
                 //mat4.identity(mvMatrix);
                 function createIDMatrix() {
@@ -237,17 +253,14 @@
                 }
 
                 mvMatrix = createIDMatrix();
-
                 ///////////////////////////
                 /////TRAINGLE//////////////
                 ///////////////////////////
 
                 mvPushMatrix();     //PUSH TRIANGLE ON
-                //mat4.rotate(mvMatrix, degToRoad(rTri), [0,0,1]);
                 translate(-1.5, 0.0, -10.0);  //Translate Triangle
                 rotateY(45);
                 rotateX(0);
-                //hearX(45);
 
                 gl.bindBuffer(gl.ARRAY_BUFFER, pyramidVertexPositionBuffer);
                 gl.vertexAttribPointer(shader_program.vertexPositionAttribute, pyramidVertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
@@ -278,6 +291,8 @@
                 mvPopMatrix();      //POP SQUARE OFF
             }
 
+        </script>
+        <script>
             //Translate Function
             function translate(a,b,c){
                 translateMatrix = [
@@ -403,6 +418,33 @@
 
                 //drawScene();
                 tick();
+            }
+        </script>
+        <script>
+            function createOrthographic(left, right, bottom, top, near, far) {
+                mid_x = (left + right)/2;
+                mid_y = (bottom + top)/2;
+                mid_z = (-near + -far)/2;
+
+                centerAboutOrigin = [
+                    1.0, 0.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    -mid_x, -mid_y, -mid_z, 1.0
+                ];
+                mat4.multiply(pMatrix, centerAboutOrigin);
+
+                scale_x = 2.0/(right - left);
+                scale_y = 2.0/(top - bottom);
+                scale_z = 2.0/(far-near);
+
+                scaleViewingVolume = [
+                    scale_x, 0.0, 0.0, 0.0,
+                    0.0, scale_y, 0.0, 0.0,
+                    0.0, 0.0, -scale_z, 0.0,
+                    0.0, 0.0, 0.0, 1.0
+                ];
+                mat4.multiply(pMatrix, scaleViewingVolume);
             }
         </script>
     </head>
