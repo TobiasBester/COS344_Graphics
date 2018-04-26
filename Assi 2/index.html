@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+    <head>
+        <!--script>var exports = {};</script>
+        <script type="text/javascript" src="scripts/require.js"></script>
+        <!--script type="text/javascript" src="gl-matrix.js"></script-->
+        <script type="text/javascript" src="scripts/glMatrix-0.9.5.min.js"></script>
+        <script type="text/javascript" src="scripts/webgl-utils.js"></script>
+        <script type="text/javascript">
+            var gl;
+            function intiGL(canvas) {
+                try {
+                    gl = canvas.getContext("webgl");
+                    gl.viewportWidth = canvas.width;
+                    gl.viewportHeight = canvas.height;
+                }
+                catch(e){
+
+                }
+                if (!gl){
+                    alert("Could not initialise WebGL!");
+                }
+            }
+        </script>
+        <script id="shader-vs" type="x-shader/x-vertex">
+            attribute vec3 vertexPosition;
+
+            uniform mat4 uMVMatrix;
+            uniform mat4 uPMatrix;
+
+            void main(void) {
+                gl_Position = uPMatrix * uMVMatrix * vec4(vertexPosition, 1.0);
+            }
+        </script>
+        <script id="shader-fs" type="x-shader/x-fragment">
+            precision mediump float;
+
+            void main(void){
+                gl_FragColor = vec4(0.6,0.1,0.3,1.0);
+            }
+        </script>
+        <script type="text/javascript">
+            function getShader(gl, id){
+                var shaderScript = document.getElementById(id);
+                if (!shaderScript) {
+                    return null;
+                }
+                var str ="";
+                var k = shaderScript.firstChild;
+                while(k){
+                    if (k.nodeType == 3){
+                        str += k.textContent;
+                    }
+                    k = k.nextSibling;
+                }
+            
+
+                var shader;
+                if (shaderScript.type == "x-shader/x-fragment"){
+                    shader = gl.createShader(gl.FRAGMENT_SHADER);
+                } else if (shaderScript.type == "x-shader/x-vertex") {
+                    shader = gl.createShader(gl.VERTEX_SHADER);
+                } else {
+                    return null;
+                }
+
+                gl.shaderSource(shader,str);
+                gl.compileShader(shader);
+
+                if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                    alert(gl.getShaderInfoLog(shader));
+                    return null;
+                }
+
+                return shader;
+            }
+        </script>
+        <script>
+            var shader_program;
+
+            function initShaders(){
+                var fragmentShader = getShader(gl, "shader-fs");
+                var vertexShader = getShader(gl, "shader-vs");
+
+                shader_program = gl.createProgram();
+                gl.attachShader(shader_program,vertexShader);
+                gl.attachShader(shader_program,fragmentShader);
+                gl.linkProgram(shader_program);
+
+                if (!gl.getProgramParameter(shader_program, gl.LINK_STATUS)){
+                    alert("Could_not_initialise_shaders");
+                }
+
+                gl.useProgram(shader_program);
+                
+                shader_program.vertexPositionAttribute = gl.getAttribLocation(shader_program,"vertexPosition");
+                gl.enableVertexAttribArray(shader_program.vertexPositionAttribute);
+
+                shader_program.pMatrixLocation = gl.getUniformLocation(shader_program,"uPMatrix");
+                shader_program.mvMatrixLocation = gl.getUniformLocation(shader_program, "uMVMatrix");
+            }
+        </script>
+        <script>
+            var mvMatrix = mat4.create();
+            var mvMatrixStack = [];
+            var pMatrix = mat4.create();
+
+            function mvPushMatrix(){
+                var copy = mat4.create();
+                mat4.set(mvMatrix, copy);
+                mvMatrixStack.push(copy);
+            }
+
+            function mvPopMatrix(){
+                if (mvMatrixStack.length == 0){
+                    throw "Invalid popMatrix!";
+                }
+                mvMatrix = mvMatrixStack.pop();
+            }
+
+            function degToRoad(degrees){
+                return degrees * Math.PI/ 180;
+            }
+
+            function setMatrixUniforms() {
+                gl.uniformMatrix4fv(shader_program.pMatrixLocation, false, pMatrix);
+                gl.uniformMatrix4fv(shader_program.mvMatrixLocation, false, mvMatrix);
+            }
+
+            var roof1VertexPositionBuffer;
+            var roof2VertexPositionBuffer;
+            var roof3VertexPositionBuffer;
+            var roof4VertexPositionBuffer;
+            var house1VertexPositionBuffer;
+            var house2VertexPositionBuffer;
+            var house3VertexPositionBuffer;
+            var house4VertexPositionBuffer;
+            var cubeVertexIndexBuffer;
+
+            function initBuffers() {
+                roof1VertexPositionBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, roof1VertexPositionBuffer);
+                var vertices = [
+                    // Front face
+                    0.0,  1.0,  0.0,
+                    -1.0, -1.0,  1.0,
+                    1.0, -1.0,  1.0,
+                    // Right face
+                    0.0,  1.0,  0.0,
+                    1.0, -1.0,  1.0,
+                    1.0, -1.0, -1.0,
+                    // Back face
+                    0.0,  1.0,  0.0,
+                    1.0, -1.0, -1.0,
+                    -1.0, -1.0, -1.0,
+                    // Left face
+                    0.0,  1.0,  0.0,
+                    -1.0, -1.0, -1.0,
+                    -1.0, -1.0,  1.0
+                ];
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+                roof1VertexPositionBuffer.itemSize = 3;
+                roof1VertexPositionBuffer.numItems = 12;
+
+                roof2VertexPositionBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, roof2VertexPositionBuffer);
+                var vertices = [
+                    // Front face
+                    0.0,  1.0,  0.0,
+                    -1.0, -1.0,  1.0,
+                    1.0, -1.0,  1.0,
+                    // Right face
+                    0.0,  1.0,  0.0,
+                    1.0, -1.0,  1.0,
+                    1.0, -1.0, -1.0,
+                    // Back face
+                    0.0,  1.0,  0.0,
+                    1.0, -1.0, -1.0,
+                    -1.0, -1.0, -1.0,
+                    // Left face
+                    0.0,  1.0,  0.0,
+                    -1.0, -1.0, -1.0,
+                    -1.0, -1.0,  1.0
+                ];
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+                roof2VertexPositionBuffer.itemSize = 3;
+                roof2VertexPositionBuffer.numItems = 12;
+
+                roof3VertexPositionBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, roof3VertexPositionBuffer);
+                var vertices = [
+                    // Front face
+                    0.0,  1.0,  0.0,
+                    -1.0, -1.0,  1.0,
+                    1.0, -1.0,  1.0,
+                    // Right face
+                    0.0,  1.0,  0.0,
+                    1.0, -1.0,  1.0,
+                    1.0, -1.0, -1.0,
+                    // Back face
+                    0.0,  1.0,  0.0,
+                    1.0, -1.0, -1.0,
+                    -1.0, -1.0, -1.0,
+                    // Left face
+                    0.0,  1.0,  0.0,
+                    -1.0, -1.0, -1.0,
+                    -1.0, -1.0,  1.0
+                ];
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+                roof3VertexPositionBuffer.itemSize = 3;
+                roof3VertexPositionBuffer.numItems = 12;
+
+                roof4VertexPositionBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, roof4VertexPositionBuffer);
+                var vertices = [
+                    // Front face
+                    0.0,  1.0,  0.0,
+                    -1.0, -1.0,  1.0,
+                    1.0, -1.0,  1.0,
+                    // Right face
+                    0.0,  1.0,  0.0,
+                    1.0, -1.0,  1.0,
+                    1.0, -1.0, -1.0,
+                    // Back face
+                    0.0,  1.0,  0.0,
+                    1.0, -1.0, -1.0,
+                    -1.0, -1.0, -1.0,
+                    // Left face
+                    0.0,  1.0,  0.0,
+                    -1.0, -1.0, -1.0,
+                    -1.0, -1.0,  1.0
+                ];
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+                roof4VertexPositionBuffer.itemSize = 3;
+                roof4VertexPositionBuffer.numItems = 12;
+
+                house1VertexPositionBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER,house1VertexPositionBuffer);
+                vertices = [
+                    // Front face
+                    -1.0, -1.0,  1.0,
+                    1.0, -1.0,  1.0,
+                    1.0,  1.0,  1.0,
+                    -1.0,  1.0,  1.0,
+
+                    // Back face
+                    -1.0, -1.0, -1.0,
+                    -1.0,  1.0, -1.0,
+                    1.0,  1.0, -1.0,
+                    1.0, -1.0, -1.0,
+
+                    // Top face
+                    -1.0,  1.0, -1.0,
+                    -1.0,  1.0,  1.0,
+                    1.0,  1.0,  1.0,
+                    1.0,  1.0, -1.0,
+
+                    // Bottom face
+                    -1.0, -1.0, -1.0,
+                    1.0, -1.0, -1.0,
+                    1.0, -1.0,  1.0,
+                    -1.0, -1.0,  1.0,
+
+                    // Right face
+                    1.0, -1.0, -1.0,
+                    1.0,  1.0, -1.0,
+                    1.0,  1.0,  1.0,
+                    1.0, -1.0,  1.0,
+
+                    // Left face
+                    -1.0, -1.0, -1.0,
+                    -1.0, -1.0,  1.0,
+                    -1.0,  1.0,  1.0,
+                    -1.0,  1.0, -1.0,
+                ];
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+                house1VertexPositionBuffer.itemSize = 3;
+                house1VertexPositionBuffer.numItems = 24;
+
+                house2VertexPositionBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER,house2VertexPositionBuffer);
+                vertices = [
+                    // Front face
+                    -1.0, -1.0,  1.0,
+                    1.0, -1.0,  1.0,
+                    1.0,  1.0,  1.0,
+                    -1.0,  1.0,  1.0,
+
+                    // Back face
+                    -1.0, -1.0, -1.0,
+                    -1.0,  1.0, -1.0,
+                    1.0,  1.0, -1.0,
+                    1.0, -1.0, -1.0,
+
+                    // Top face
+                    -1.0,  1.0, -1.0,
+                    -1.0,  1.0,  1.0,
+                    1.0,  1.0,  1.0,
+                    1.0,  1.0, -1.0,
+
+                    // Bottom face
+                    -1.0, -1.0, -1.0,
+                    1.0, -1.0, -1.0,
+                    1.0, -1.0,  1.0,
+                    -1.0, -1.0,  1.0,
+
+                    // Right face
+                    1.0, -1.0, -1.0,
+                    1.0,  1.0, -1.0,
+                    1.0,  1.0,  1.0,
+                    1.0, -1.0,  1.0,
+
+                    // Left face
+                    -1.0, -1.0, -1.0,
+                    -1.0, -1.0,  1.0,
+                    -1.0,  1.0,  1.0,
+                    -1.0,  1.0, -1.0,
+                ];
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+                house2VertexPositionBuffer.itemSize = 3;
+                house2VertexPositionBuffer.numItems = 24;
+
+                house3VertexPositionBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER,house3VertexPositionBuffer);
+                vertices = [
+                    // Front face
+                    -1.0, -1.0,  1.0,
+                    1.0, -1.0,  1.0,
+                    1.0,  1.0,  1.0,
+                    -1.0,  1.0,  1.0,
+
+                    // Back face
+                    -1.0, -1.0, -1.0,
+                    -1.0,  1.0, -1.0,
+                    1.0,  1.0, -1.0,
+                    1.0, -1.0, -1.0,
+
+                    // Top face
+                    -1.0,  1.0, -1.0,
+                    -1.0,  1.0,  1.0,
+                    1.0,  1.0,  1.0,
+                    1.0,  1.0, -1.0,
+
+                    // Bottom face
+                    -1.0, -1.0, -1.0,
+                    1.0, -1.0, -1.0,
+                    1.0, -1.0,  1.0,
+                    -1.0, -1.0,  1.0,
+
+                    // Right face
+                    1.0, -1.0, -1.0,
+                    1.0,  1.0, -1.0,
+                    1.0,  1.0,  1.0,
+                    1.0, -1.0,  1.0,
+
+                    // Left face
+                    -1.0, -1.0, -1.0,
+                    -1.0, -1.0,  1.0,
+                    -1.0,  1.0,  1.0,
+                    -1.0,  1.0, -1.0,
+                ];
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+                house3VertexPositionBuffer.itemSize = 3;
+                house3VertexPositionBuffer.numItems = 24;
+
+                house4VertexPositionBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER,house4VertexPositionBuffer);
+                vertices = [
+                    // Front face
+                    -1.0, -1.0,  1.0,
+                    1.0, -1.0,  1.0,
+                    1.0,  1.0,  1.0,
+                    -1.0,  1.0,  1.0,
+
+                    // Back face
+                    -1.0, -1.0, -1.0,
+                    -1.0,  1.0, -1.0,
+                    1.0,  1.0, -1.0,
+                    1.0, -1.0, -1.0,
+
+                    // Top face
+                    -1.0,  1.0, -1.0,
+                    -1.0,  1.0,  1.0,
+                    1.0,  1.0,  1.0,
+                    1.0,  1.0, -1.0,
+
+                    // Bottom face
+                    -1.0, -1.0, -1.0,
+                    1.0, -1.0, -1.0,
+                    1.0, -1.0,  1.0,
+                    -1.0, -1.0,  1.0,
+
+                    // Right face
+                    1.0, -1.0, -1.0,
+                    1.0,  1.0, -1.0,
+                    1.0,  1.0,  1.0,
+                    1.0, -1.0,  1.0,
+
+                    // Left face
+                    -1.0, -1.0, -1.0,
+                    -1.0, -1.0,  1.0,
+                    -1.0,  1.0,  1.0,
+                    -1.0,  1.0, -1.0,
+                ];
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+                house4VertexPositionBuffer.itemSize = 3;
+                house4VertexPositionBuffer.numItems = 24;
+
+                //Define element array buffer
+                cubeVertexIndexBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
+                var cubeVertexIndices = [
+                    0, 1, 2,      0, 2, 3,    // Front face
+                    4, 5, 6,      4, 6, 7,    // Back face
+                    8, 9, 10,     8, 10, 11,  // Top face
+                    12, 13, 14,   12, 14, 15, // Bottom face
+                    16, 17, 18,   16, 18, 19, // Right face
+                    20, 21, 22,   20, 22, 23  // Left face
+                ]
+                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cubeVertexIndices), gl.STATIC_DRAW);
+                cubeVertexIndexBuffer.itemSize = 1;
+                cubeVertexIndexBuffer.numItems = 36;
+            }
+
+            var rRoof1 = 0;       //used to track rotation
+            var rHouse1 = 0;
+            var rRoof2 = 0;       //used to track rotation
+            var rHouse2 = 0;
+            var rRoof3 = 0;       //used to track rotation
+            var rHouse3 = 0;
+            var rRoof4 = 0;       //used to track rotation
+            var rHouse4 = 0;
+
+
+            function drawScene() {
+
+                gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+                
+/*
+                pMatrix = {
+                    createOrthographic: function(left, right, bottom, top, near, far) {
+                        return [
+                            2/(right-left), 0, 0, 0,
+                            0, 2/(top-bottom), 0, 0,
+                            0, 0, 2/(near-far), 0,
+                            (left+right)/(left-right), (bottom+top)/(bottom-top), (near+far)/(near-far), 1 
+                        ];
+                    }
+                }*/
+                //pMatrix = createIDMatrix();
+                //console.log("First"+ pMatrix);
+                //createOrthographic(0, gl.canvas.clientWidth, gl.canvas.clientHeight, 0, 20.0, -20.0);
+               // console.log("After"+ pMatrix);
+                //mat4.ortho(0, gl.canvas.clientWidth, gl.canvas.clientHeight, 0, 400, -400, pMatrix);
+                //console.log("Secon"+ pMatrix);
+                mat4.perspective(45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0, pMatrix);
+                //console.log("Third"+ pMatrix);
+
+                //mat4.identity(mvMatrix);
+                function createIDMatrix() {
+                    return new Float32Array (
+                        [1, 0, 0, 0,
+                         0, 1, 0, 0,
+                         0, 0, 1, 0,
+                         0, 0, 0, 1]
+                    );
+                }
+
+                mvMatrix = createIDMatrix();
+                ///////////////////////////
+                /////     ROOF 1   ////////
+                ///////////////////////////
+
+                mvPushMatrix();
+                translate(-3.0, 1.0, -10.0);
+                rotateY(45);
+                rotateX(0);
+                scale(0.5,0.5,0.5);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, roof1VertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, roof1VertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
+                setMatrixUniforms();
+                gl.drawArrays(gl.TRIANGLES, 0, roof1VertexPositionBuffer.numItems);
+            
+                mvPopMatrix();
+
+                //////////////////////////////////
+
+                 ///////////////////////////
+                /////     ROOF 2   ////////
+                ///////////////////////////
+
+                mvPushMatrix();
+                translate(-1.0, 1.0, -10.0);
+                rotateY(45);
+                rotateX(0);
+                scale(0.75,0.5,0.5);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, roof2VertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, roof2VertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
+                setMatrixUniforms();
+                gl.drawArrays(gl.TRIANGLES, 0, roof2VertexPositionBuffer.numItems);
+            
+                mvPopMatrix();
+
+                //////////////////////////////////
+
+                 ///////////////////////////
+                /////     ROOF 3   ////////
+                ///////////////////////////
+
+                mvPushMatrix();
+                translate(1.5, 1.0, -10.0);
+                rotateY(45);
+                rotateX(0);
+                scale(0.5,0.5,0.5);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, roof3VertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, roof3VertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
+                setMatrixUniforms();
+                gl.drawArrays(gl.TRIANGLES, 0, roof3VertexPositionBuffer.numItems);
+            
+                mvPopMatrix();
+
+                //////////////////////////////////
+
+                 ///////////////////////////
+                /////     ROOF 4   ////////
+                ///////////////////////////
+
+                mvPushMatrix();
+                translate(3.0, 1.75, -10.0);
+                rotateY(45);
+                rotateX(0);
+                scale(0.5,1.0,0.5);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, roof4VertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, roof4VertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
+                setMatrixUniforms();
+                gl.drawArrays(gl.TRIANGLES, 0, roof4VertexPositionBuffer.numItems);
+            
+                mvPopMatrix();
+
+                //////////////////////////////////
+
+                ///////////////////////////
+                /////   HOUSE1       //////
+                ///////////////////////////
+                mvPushMatrix();
+
+                translate(-3.0, 0.0, -10.0);       
+                rotateX(0);
+                rotateY(-45);            
+                
+                scale(0.5,0.5,0.5);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, house1VertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, house1VertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
+                setMatrixUniforms();
+                gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+                mvPopMatrix();
+
+                //////////////////////////////////////
+
+                ///////////////////////////
+                /////   HOUSE2       //////
+                ///////////////////////////
+                mvPushMatrix();
+
+                translate(-1.0, 0.0, -10.0);       
+                rotateX(0);
+                rotateY(-45);            
+                
+                scale(0.75,0.5,0.5);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, house2VertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, house2VertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
+                setMatrixUniforms();
+                gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+                mvPopMatrix();
+
+                //////////////////////////////////////
+
+                ///////////////////////////
+                /////   HOUSE3       //////
+                ///////////////////////////
+                mvPushMatrix();
+
+                translate(1.5, 0.0, -10.0);       
+                rotateX(0);
+                rotateY(-45);            
+                
+                scale(0.5,0.5,0.5);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, house2VertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, house2VertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
+                setMatrixUniforms();
+                gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+                mvPopMatrix();
+
+                //////////////////////////////////////
+
+                ///////////////////////////
+                /////   HOUSE4       //////
+                ///////////////////////////
+                mvPushMatrix();
+
+                translate(3.0, 0.0, -10.0);       
+                rotateX(0);
+                rotateY(-45);            
+                
+                scale(0.5,0.75,0.5);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, house4VertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, house4VertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
+                setMatrixUniforms();
+                gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+                mvPopMatrix();
+
+                //////////////////////////////////////
+            }
+
+        </script>
+        <script>
+            //Translate Function
+            function translate(a,b,c){
+                translateMatrix = [
+                    1.0, 0.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    a, b, c, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Rotate along Z-axis Function
+            function rotateZ(theta){
+                translateMatrix = [
+                    Math.cos(theta), Math.sin(theta), 0.0, 0.0,
+                    -Math.sin(theta), Math.cos(theta), 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0, 0, 0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Rotate along Y-axis Function
+            function rotateY(theta){
+                translateMatrix = [
+                    Math.cos(theta), 0.0, -Math.sin(theta), 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    Math.sin(theta), 0.0, Math.cos(theta), 0.0,
+                    0.0, 0.0, 0.0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Rotate along X-axis Function
+            function rotateX(theta){
+                translateMatrix = [
+                    1.0, 0.0, 0.0, 0.0,
+                    0.0, Math.cos(theta), Math.sin(theta), 0.0,
+                    0.0, -Math.sin(theta), Math.cos(theta), 0.0,
+                    0, 0, 0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Scale Function
+            function scale(betaX,betaY,betaZ){
+                translateMatrix = [
+                    betaX, 0.0, 0.0, 0.0,
+                    0.0, betaY, 0.0, 0.0,
+                    0.0, 0.0, betaZ, 0.0,
+                    0, 0, 0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Shear along X Axis Function
+            function shearX(theta){
+                translateMatrix = [
+                    1.0, 0.0, 0.0, 0.0,
+                    1/Math.tan(theta), 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0, 0, 0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Shear along Y Axis Function
+            function shearY(theta){
+                translateMatrix = [
+                    1.0, 0.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 1/Math.tan(theta), 1.0, 0.0,
+                    0, 0, 0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Shear along Z Axis Function
+            function shearZ(theta){
+                translateMatrix = [
+                    1.0, 0.0, 1/Math.tan(theta), 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0, 0, 0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            function tick(){
+                requestAnimFrame(tick);
+                drawScene();
+                animate();
+            }
+
+            var lastTime = 0;
+            function animate(){
+                var timeNow = new Date().getTime();
+                if (lastTime != 0){
+                    var elapsed = timeNow - lastTime;
+
+                  //  rPyramid += (90 * elapsed)/1000.0;
+                   // rCube -= (75 * elapsed)/1000.0;
+                }
+                lastTime = timeNow;
+            }
+        </script>
+        <script>
+            function webGLStart() {
+                var canvas = document.getElementById("webgl-intro");
+                intiGL(canvas);
+                initShaders();
+                initBuffers();
+
+                gl.clearColor(0.0,1.0,0.5,1.0);
+                gl.enable(gl.DEPTH_TEST);
+
+                //drawScene();
+                tick();
+            }
+        </script>
+        <script>
+            function createOrthographic(left, right, bottom, top, near, far) {
+                mid_x = (left + right)/2;
+                mid_y = (bottom + top)/2;
+                mid_z = (-near + -far)/2;
+
+                centerAboutOrigin = [
+                    1.0, 0.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    -mid_x, -mid_y, -mid_z, 1.0
+                ];
+                mat4.multiply(pMatrix, centerAboutOrigin);
+
+                scale_x = 2.0/(right - left);
+                scale_y = 2.0/(top - bottom);
+                scale_z = 2.0/(far-near);
+
+                scaleViewingVolume = [
+                    scale_x, 0.0, 0.0, 0.0,
+                    0.0, scale_y, 0.0, 0.0,
+                    0.0, 0.0, -scale_z, 0.0,
+                    0.0, 0.0, 0.0, 1.0
+                ];
+                mat4.multiply(pMatrix, scaleViewingVolume);
+            }
+        </script>
+    </head>
+    <body onload="webGLStart();">
+        <canvas id="webgl-intro" width="800" height="600"></canvas>
+    </body>
+</html>
