@@ -447,14 +447,12 @@
                         ];
                     }
                 }*/
-                //pMatrix = createIDMatrix();
-                //console.log("First"+ pMatrix);
-                //createOrthographic(0, gl.canvas.clientWidth, gl.canvas.clientHeight, 0, 20.0, -20.0);
-               // console.log("After"+ pMatrix);
-                //mat4.ortho(0, gl.canvas.clientWidth, gl.canvas.clientHeight, 0, 400, -400, pMatrix);
-                //console.log("Secon"+ pMatrix);
-                mat4.perspective(45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0, pMatrix);
-                //console.log("Third"+ pMatrix);
+                pMatrix = createIDMatrix();
+                //createOblique(180, 180);
+                createOrthographic(-4, 4, -4, 4, 0, 100);
+                //mat4.ortho(-4, 4, -4, 4, 0, 100, pMatrix);
+                //createPerspective(45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0);
+                //mat4.perspective(45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0, pMatrix);
 
                 //mat4.identity(mvMatrix);
                 function createIDMatrix() {
@@ -763,7 +761,7 @@
                 mid_x = (left + right)/2;
                 mid_y = (bottom + top)/2;
                 mid_z = (-near + -far)/2;
-
+/*
                 centerAboutOrigin = [
                     1.0, 0.0, 0.0, 0.0,
                     0.0, 1.0, 0.0, 0.0,
@@ -771,19 +769,68 @@
                     -mid_x, -mid_y, -mid_z, 1.0
                 ];
                 mat4.multiply(pMatrix, centerAboutOrigin);
-
+*/
                 scale_x = 2.0/(right - left);
                 scale_y = 2.0/(top - bottom);
                 scale_z = 2.0/(far-near);
-
+/*
                 scaleViewingVolume = [
                     scale_x, 0.0, 0.0, 0.0,
                     0.0, scale_y, 0.0, 0.0,
                     0.0, 0.0, -scale_z, 0.0,
                     0.0, 0.0, 0.0, 1.0
                 ];
-                mat4.multiply(pMatrix, scaleViewingVolume);
+                mat4.multiply(pMatrix, scaleViewingVolume);*/
+
+                orthoMat = [
+                    scale_x, 0.0, 0.0, 0.0,
+                    0.0, scale_y, 0.0, 0.0,
+                    0.0, 0.0,-scale_z, 0.0,
+                    mid_x * -(scale_x), mid_y * -(scale_y), mid_z * (scale_z), 1.0 
+                ];
+
+                mat4.multiply(pMatrix, orthoMat);
             }
+
+            function createPerspective(fovy, aspect, near, far) {
+                // Fovy cannot be > 180degrees
+                // Aspect ratio is width/height
+                // near and far > 0
+                // near < far
+                var top, bottom, left, right;
+                top = near * Math.tan(degToRoad(fovy)/2);
+                bottom = -top;
+                right = top * aspect;
+                left = -right;
+
+                createFrustum(left, right, bottom, top, near, far);
+            }
+
+            function createFrustum(left, right, bottom, top, near, far) {
+                frustum = [
+                    (2*near)/(right-left), 0.0, 0.0, 0.0,
+                    0.0, (2*near)/(top-bottom), 0.0, 0.0,
+                    (right+left)/(right-left), (top+bottom)/(top-bottom), -((far+near)/(far-near)), -1.0,
+                    0.0, 0.0, (-2*far*near)/(far-near), 0.0
+                ];
+
+                mat4.multiply(pMatrix, frustum);
+            }
+
+            function createOblique(theta, phi) {
+                cotTheta = 1/Math.tan(theta);
+                cotPhi = 1/Math.tan(phi);
+
+                oblique = [
+                    1.0, 0.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    cotTheta, cotPhi, 0.0, 0.0,
+                    0.0, 0.0, 0.0, 1.0
+                ];
+
+                mat4.multiply(pMatrix, oblique);
+            }
+
         </script>
     </head>
     <body onload="webGLStart();">
