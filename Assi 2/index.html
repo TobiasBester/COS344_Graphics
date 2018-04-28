@@ -30,12 +30,7 @@
             uniform mat3 uNMatrix;
 
             uniform vec3 uAmbientColor;
-            uniform vec3 uLightingDirection;
-            uniform vec3 uDirectionalColor;
 
-            uniform bool uUseLighting;
-
-            varying vec3 vLightWeighting;
             varying vec3 v_normal;
 
             void main(void) {
@@ -52,12 +47,13 @@
             varying vec3 v_normal;
             uniform vec3 u_reverseLD;
             uniform vec4 u_color;
+            uniform vec3 u_ambient;
 
             void main(void){
                 vec3 normal =  normalize(v_normal);
                 float light = dot(normal, u_reverseLD);
                 gl_FragColor = u_color;
-                gl_FragColor.rgb *= light;
+                gl_FragColor.rgb *= light + u_ambient;
             }
         </script>
         <script type="text/javascript">
@@ -122,9 +118,7 @@
                 shader_program.pMatrixLocation = gl.getUniformLocation(shader_program,"uPMatrix");
                 shader_program.mvMatrixLocation = gl.getUniformLocation(shader_program, "uMVMatrix");
                 shader_program.nMatrixUniform = gl.getUniformLocation(shader_program, "uNMatrix");
-                shader_program.samplerUniform = gl.getUniformLocation(shader_program, "uSampler");
-                shader_program.useLightingUniform = gl.getUniformLocation(shader_program, "uUseLighting");
-                shader_program.ambientColorUniform = gl.getUniformLocation(shader_program, "uAmbientColor");
+                shader_program.ambientColorUniform = gl.getUniformLocation(shader_program, "u_ambient");
                 shader_program.lightingDirectionUniform = gl.getUniformLocation(shader_program, "u_reverseLD");
                 shader_program.colorLocation = gl.getUniformLocation(shader_program, "u_color");
             }
@@ -535,6 +529,8 @@
                 lights = vec3.normalize([10.0, 3.0, -12.0]);
                 gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
                 gl.uniform4fv(shader_program.colorLocation, [0.6, 0.1, 0.2, 1]);
+                gl.uniform3f(shader_program.ambientColorUniform, 
+                            0.5, 0.1, 0.4 );
 /*
                 gl.uniform3f(
                     shader_program.directionalColorUniform,
