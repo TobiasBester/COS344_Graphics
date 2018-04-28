@@ -36,16 +36,11 @@
             uniform bool uUseLighting;
 
             varying vec3 vLightWeighting;
+            varying vec3 v_normal;
 
             void main(void) {
                 gl_Position = uPMatrix * uMVMatrix * vec4(vertexPosition, 1.0);
-                if (!uUseLighting) {
-                    vLightWeighting = vec3(1.0, 1.0, 1.0);
-                } else {
-                    vec3 transformedNormal = uNMatrix * aVertexNormal;
-                    float directionalLightWeighting = max(dot(transformedNormal, uLightingDirection), 0.0);
-                    vLightWeighting = uAmbientColor + uDirectionalColor * directionalLightWeighting;
-                }
+                v_normal = aVertexNormal;
             }
         </script>
         <script id="shader-fs" type="x-shader/x-fragment">
@@ -55,13 +50,13 @@
             uniform sampler2D uSampler;
 
             varying vec3 v_normal;
-            uniform vec3 uLightingDirection;
-
-            vec3 normal =  normalize(aVertexNormal);
-            float light = dot(normal, uLightingDirection);
+            uniform vec3 u_reverseLD;
+            uniform vec4 u_color;
 
             void main(void){
-                gl_FragColor = uAmbientColor;
+                vec3 normal =  normalize(v_normal);
+                float light = dot(normal, u_reverseLD);
+                gl_FragColor = u_color;
                 gl_FragColor.rgb *= light;
             }
         </script>
@@ -130,8 +125,8 @@
                 shader_program.samplerUniform = gl.getUniformLocation(shader_program, "uSampler");
                 shader_program.useLightingUniform = gl.getUniformLocation(shader_program, "uUseLighting");
                 shader_program.ambientColorUniform = gl.getUniformLocation(shader_program, "uAmbientColor");
-                shader_program.lightingDirectionUniform = gl.getUniformLocation(shader_program, "uLightingDirection");
-                shader_program.directionalColorUniform = gl.getUniformLocation(shader_program, "uDirectionalColor");
+                shader_program.lightingDirectionUniform = gl.getUniformLocation(shader_program, "u_reverseLD");
+                shader_program.colorLocation = gl.getUniformLocation(shader_program, "u_color");
             }
         </script>
         <script>
@@ -325,9 +320,9 @@
                 }*/
                 pMatrix = createIDMatrix();
                 //createOblique(180, 180);
-                //createOrthographic(-4, 4, -4, 4, 0, 100);
+                createOrthographic(-4, 4, -4, 4, 0, 100);
                 //mat4.ortho(-4, 4, -4, 4, 0, 100, pMatrix);
-                createPerspective(45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0);
+                //createPerspective(45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0);
                 //mat4.perspective(45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0, pMatrix);
 
                 //mat4.identity(mvMatrix);
@@ -341,13 +336,13 @@
                 }
 
                 mvMatrix = createIDMatrix();
-                /*
+                
                 ///////////////////////////
                 /////     ROOF 1   ////////
                 ///////////////////////////
 
                 mvPushMatrix();
-                translate(-3.0, 1.0, -10.0);
+                translate(-2.0, 1.0, -6.0);
                 rotateY(45);
                 rotateX(0);
                 scale(0.5,0.5,0.5);
@@ -385,7 +380,7 @@
                 ///////////////////////////
 
                 mvPushMatrix();
-                translate(1.5, 1.0, -10.0);
+                translate(1.5, 1.0, -14.0);
                 rotateY(45);
                 rotateX(0);
                 scale(0.5,0.5,0.5);
@@ -404,7 +399,7 @@
                 ///////////////////////////
 
                 mvPushMatrix();
-                translate(3.0, 1.75, -10.0);
+                translate(3.0, 1.75, -8.0);
                 rotateY(45);
                 rotateX(0);
                 scale(0.5,1.0,0.5);
@@ -435,30 +430,9 @@
                 gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
                 gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
                 
-                //lighting
-                gl.uniform1i(shader_program.samplerUniform, 0);
-                var lighting = true;
-                gl.uniform1i(shader_program.useLightingUniform, lighting);
-                if (lighting) {
-                    gl.uniform3f(
-                        shader_program.ambientColorUniform,
-                        0.2, 0.2, 0.2   //Ambient RGB
-                    );
-                }
-                
-                var lightingDirection = [
-                    0.0, 0.0, 0.0  //lighting direction x, y, z
-                ];
-                var adjustedLD = vec3.create();
-                vec3.normalize(lightingDirection, adjustedLD);
-                vec3.scale(adjustedLD, -1);
-                gl.uniform3fv(shader_program.lightingDirectionUniform, adjustedLD);
-
-                gl.uniform3f(
-                    shader_program.directionalColorUniform,
-                    0.8, 0.3, 0.8   //directional RGB
-                )
-                //////////
+                lights = vec3.normalize([4.0, 0.0, -7.0]);
+                gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
+                gl.uniform4fv(shader_program.colorLocation, [0.6, 0.1, 0.2, 1]);
 
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
                 setMatrixUniforms();
@@ -473,7 +447,7 @@
                 ///////////////////////////
                 mvPushMatrix();
 
-                translate(-1.0, 0.0, -12.0);       
+                translate(-1.0, 0.0, -10.0);       
                 rotateX(0);
                 rotateY(-45);            
                 
@@ -484,30 +458,9 @@
                 gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
                 gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
                 
-                //lighting
-                gl.uniform1i(shader_program.samplerUniform, 0);
-                var lighting = true;
-                gl.uniform1i(shader_program.useLightingUniform, lighting);
-                if (lighting) {
-                    gl.uniform3f(
-                        shader_program.ambientColorUniform,
-                        0.2, 0.2, 0.2   //Ambient RGB
-                    );
-                }
-                
-                var lightingDirection = [
-                    0.0, 0.0, 0.0  //lighting direction x, y, z
-                ];
-                var adjustedLD = vec3.create();
-                vec3.normalize(lightingDirection, adjustedLD);
-                vec3.scale(adjustedLD, -1);
-                gl.uniform3fv(shader_program.lightingDirectionUniform, adjustedLD);
-
-                gl.uniform3f(
-                    shader_program.directionalColorUniform,
-                    0.8, 0.3, 0.8   //directional RGB
-                )
-                //////////
+                lights = vec3.normalize([10.0, 3.0, -12.0]);
+                gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
+                gl.uniform4fv(shader_program.colorLocation, [0.6, 0.1, 0.2, 1]);
 
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
                 setMatrixUniforms();
@@ -522,7 +475,7 @@
                 ///////////////////////////
                 mvPushMatrix();
 
-                translate(1.5, 0.0, -10.0);       
+                translate(1.5, 0.0, -14.0);       
                 rotateX(0);
                 rotateY(-45);            
                 
@@ -533,30 +486,9 @@
                 gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
                 gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
                 
-                //lighting
-                gl.uniform1i(shader_program.samplerUniform, 0);
-                var lighting = true;
-                gl.uniform1i(shader_program.useLightingUniform, lighting);
-                if (lighting) {
-                    gl.uniform3f(
-                        shader_program.ambientColorUniform,
-                        0.2, 0.2, 0.2   //Ambient RGB
-                    );
-                }
-                
-                var lightingDirection = [
-                    0.0, 0.0, 0.0  //lighting direction x, y, z
-                ];
-                var adjustedLD = vec3.create();
-                vec3.normalize(lightingDirection, adjustedLD);
-                vec3.scale(adjustedLD, -1);
-                gl.uniform3fv(shader_program.lightingDirectionUniform, adjustedLD);
-
-                gl.uniform3f(
-                    shader_program.directionalColorUniform,
-                    0.8, 0.3, 0.8   //directional RGB
-                )
-                //////////
+                lights = vec3.normalize([10.0, 3.0, -12.0]);
+                gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
+                gl.uniform4fv(shader_program.colorLocation, [0.6, 0.1, 0.2, 1]);
 
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
                 setMatrixUniforms();
@@ -565,13 +497,13 @@
                 mvPopMatrix();
 
                 //////////////////////////////////////
-*/
+
                 ///////////////////////////
                 /////   HOUSE4       //////
                 ///////////////////////////
                 mvPushMatrix();
 
-                translate(0.0, 0.0, -8.0);       
+                translate(3.0, 0.0, -8.0);       
                 rotateX(0);
                 rotateY(-45);            
                 
@@ -583,7 +515,7 @@
                 gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
                 gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
                 
-                //lighting
+                /*//lighting
                 gl.uniform1i(shader_program.samplerUniform, 0);
                 var lighting = true;
                 gl.uniform1i(shader_program.useLightingUniform, lighting);
@@ -599,14 +531,16 @@
                 ];
                 var adjustedLD = vec3.create();
                 vec3.normalize(lightingDirection, adjustedLD);
-                vec3.scale(adjustedLD, -1);
-                gl.uniform3fv(shader_program.lightingDirectionUniform, adjustedLD);
-
+                vec3.scale(adjustedLD, -1);*/
+                lights = vec3.normalize([10.0, 3.0, -12.0]);
+                gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
+                gl.uniform4fv(shader_program.colorLocation, [0.6, 0.1, 0.2, 1]);
+/*
                 gl.uniform3f(
                     shader_program.directionalColorUniform,
                     1.5, 0.2, 0.3   //directional RGB
                 )
-                //////////
+                //////////*/
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
                 setMatrixUniforms();
                 gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
