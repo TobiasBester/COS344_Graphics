@@ -326,11 +326,12 @@
                 gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
                 gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-                document.getElementById("theta").step = "15";
-                document.getElementById("phi").step = "15"
+                document.getElementById("theta").step = "3";
+                document.getElementById("phi").step = "3";
                 theta = parseInt(document.getElementById("theta").value);
                 phi = parseInt(document.getElementById("phi").value);
                 oblChecked = document.getElementById("obliqueProj").checked;
+                aChecked = document.getElementById("ambLight").checked;
 
                 pMatrix = createIDMatrix();
 
@@ -365,6 +366,13 @@
                 hz2 = parseFloat(document.getElementById("house2Z").value);
                 hz3 = parseFloat(document.getElementById("house3Z").value);
                 hz4 = parseFloat(document.getElementById("house4Z").value);
+                xDir = -(parseFloat(document.getElementById("xDir").value));
+                yDir = -(parseFloat(document.getElementById("yDir").value));
+                zDir = -(parseFloat(document.getElementById("zDir").value));
+
+                document.getElementById("xDir").step = "0.5";
+                document.getElementById("yDir").step = "0.5";
+                document.getElementById("zDir").step = "1.0";
 
                 ///////////////////////////
                 /////     ROOF 1   ////////
@@ -382,7 +390,7 @@
                 gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexNormalBuffer);
                 gl.vertexAttribPointer(shader_program.vertexNormalAttribute, roofVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-                lights = vec3.normalize([4.0, 5.0, -7.0]);
+                lights = vec3.normalize([xDir, yDir, zDir]);
                 gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
                 gl.uniform4fv(shader_program.colorLocation, [0.6, 0.6, 0.2, 1]);
                 
@@ -408,7 +416,7 @@
                 gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexNormalBuffer);
                 gl.vertexAttribPointer(shader_program.vertexNormalAttribute, roofVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
                 
-                lights = vec3.normalize([-5.0, 1.0, -2.0]);
+                lights = vec3.normalize([xDir, yDir, zDir]);
                 gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
                 gl.uniform4fv(shader_program.colorLocation, [0.1, 0.6, 0.4, 1]);
                 
@@ -434,7 +442,7 @@
                 gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexNormalBuffer);
                 gl.vertexAttribPointer(shader_program.vertexNormalAttribute, roofVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
                 
-                lights = vec3.normalize([-15.0, -1.0, -12.0]);
+                lights = vec3.normalize([xDir, yDir, zDir]);
                 gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
                 gl.uniform4fv(shader_program.colorLocation, [0.6, 0.1, 0.2, 1]);
 
@@ -460,7 +468,7 @@
                 gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexNormalBuffer);
                 gl.vertexAttribPointer(shader_program.vertexNormalAttribute, roofVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
                 
-                lights = vec3.normalize([-1.0, 3.0, -12.0]);
+                lights = vec3.normalize([xDir, yDir, zDir]);
                 gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
                 gl.uniform4fv(shader_program.colorLocation, [0.6, 0.1, 0.7, 1]);
 
@@ -488,7 +496,7 @@
                 gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
                 gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
                 
-                lights = vec3.normalize([4.0, 0.0, -7.0]);
+                lights = vec3.normalize([xDir, yDir, zDir]);
                 gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
                 gl.uniform4fv(shader_program.colorLocation, [0.6, 0.6, 0.2, 1]);
 
@@ -516,7 +524,7 @@
                 gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
                 gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
                 
-                lights = vec3.normalize([-5.0, 1.0, -2.0]);
+                lights = vec3.normalize([xDir, yDir, zDir]);
                 gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
                 gl.uniform4fv(shader_program.colorLocation, [0.1, 0.6, 0.4, 1]);
 
@@ -544,7 +552,7 @@
                 gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
                 gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
                 
-                lights = vec3.normalize([-15.0, 1.0, -12.0]);
+                lights = vec3.normalize([xDir, yDir, zDir]);
                 gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
                 gl.uniform4fv(shader_program.colorLocation, [0.6, 0.1, 0.2, 1]);
 
@@ -573,11 +581,17 @@
                 gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
                 gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
                 
-                lights = vec3.normalize([-1.0, 3.0, -12.0]);
+                lights = vec3.normalize([xDir, yDir, zDir]);
                 gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
                 gl.uniform4fv(shader_program.colorLocation, [0.6, 0.1, 0.7, 1]);
-                gl.uniform3f(shader_program.ambientColorUniform, 
-                            0.1, 0.1, 0.1 );
+
+                if (aChecked) {
+                    gl.uniform3f(shader_program.ambientColorUniform, 
+                            0.9, 0.3, 0.3 );
+                } else {
+                    gl.uniform3f(shader_program.ambientColorUniform, 
+                            0.0, 0.0, 0.0 );
+                }
 
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
                 setMatrixUniforms();
@@ -731,9 +745,20 @@
                     document.getElementById("currentProj").innerText = "Perspective";
                     console.log(projection);
                 }
+
+                if (event.keyCode == 65) {
+                    //Ambient
+                    aPress = document.getElementById("ambLight").checked;
+                    if (aPress == true) {
+                        document.getElementById("ambLight").checked = false;
+                    } else {
+                        document.getElementById("ambLight").checked = true;
+                    }
+                    console.log(aPress);
+                }
             }
 
-            var projection = 1;
+            var projection = 0;
         </script>
         <script>
             function webGLStart() {
@@ -831,7 +856,7 @@
         <canvas id="webgl-intro" width="800" height="600"></canvas>
         <div style="float: right; background: lightskyblue; padding: 10px;">
             <h1>Controls</h1>
-            <div style="background: darkgray;">
+            <div style="background: darkgray;padding:5px;">
                 <h2>House Z Values</h2>
                 House 1:
                 <input type="range" min="-20.0" max="0.0" class="slider" id="house1Z" value="-6.0">
@@ -843,7 +868,7 @@
                 <input type="range" min="-20.0" max="0.0" class="slider" id="house4Z" value="-8.0">
             </div>
             <br>
-            <div style="background: darkgray;">
+            <div style="background: darkgray;padding:5px;">
                 <h2>Oblique Projection Angles</h2>
                 Use Oblique Projection: 
                 <input type="checkbox" id="obliqueProj" value="false"><span>    Press O to Toggle  </span><br>
@@ -853,10 +878,22 @@
                 <input type="range" min="-180" max="180" class="slider" id="phi" value="30">
             </div>
             <br>
-            <div style="background: darkgray;">
-                <h2>Projection: <span id="currentProj">Orthogonal</span></h2>
+            <div style="background: darkgray;padding:5px;">
+                <h2>Projection: <span id="currentProj">Perspective</span></h2>
                 <h3>Press R for Orthogonal Projection</h3>
                 <h3>Press P for Perspective Projection</h3>
+            </div>
+            <br>
+            <div style="background: darkgray; padding:5px;">
+                <h2>Lighting</h2>
+                Point Source Light X Direction:
+                <input type="range" min="-8.0" max="8.0" class="slider" id="xDir" value="6.0"><br>
+                Point Source Light Y Direction:
+                <input type="range" min="-8.0" max="8.0" class="slider" id="yDir" value="1.0"><br>
+                Point Source Light Z Direction:
+                <input type="range" min="0.0" max="15.0" class="slider" id="zDir" value="5.0"><br>
+                Use Ambient Light: 
+                <input type="checkbox" id="ambLight" value="false"><span>    Press A to Toggle  </span><br>
             </div>
         </div>
     </body>
