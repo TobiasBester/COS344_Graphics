@@ -325,22 +325,28 @@
 
                 gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
                 gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-/*
-                pMatrix = {
-                    createOrthographic: function(left, right, bottom, top, near, far) {
-                        return [
-                            2/(right-left), 0, 0, 0,
-                            0, 2/(top-bottom), 0, 0,
-                            0, 0, 2/(near-far), 0,
-                            (left+right)/(left-right), (bottom+top)/(bottom-top), (near+far)/(near-far), 1 
-                        ];
-                    }
-                }*/
+
+                document.getElementById("theta").step = "15";
+                document.getElementById("phi").step = "15"
+                theta = parseInt(document.getElementById("theta").value);
+                phi = parseInt(document.getElementById("phi").value);
+                oblChecked = document.getElementById("obliqueProj").checked;
+
                 pMatrix = createIDMatrix();
-                //createOblique(180, 180);
+
+                if (oblChecked == true) {
+                    createOblique(theta, phi);
+                }
+
+                if (projection == 1) {
+                    createOrthographic(-4, 4, -4, 4, 0, 100);  
+                } else {
+                    createPerspective(45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0);    
+                }
+
                 //createOrthographic(-4, 4, -4, 4, 0, 100);
                 //mat4.ortho(-4, 4, -4, 4, 0, 100, pMatrix);
-                createPerspective(45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0);
+                //createPerspective(45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0);
                 //mat4.perspective(45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0, pMatrix);
 
                 //mat4.identity(mvMatrix);
@@ -700,14 +706,34 @@
             }
         </script>
         <script>
-    /*
-                var slider1 = document.getElementById("house1Z");
-                var slider1Val = document.getElementById("h1zvalue");
-                slider1Val.innerText = slider1;
-                slider1.oninput = function() {
-                    slider1Val.innerText = this.value;
+            function handleKeyPress(event){
+                if (event.keyCode == 79) {
+                    console.log("O pressed");
+                    oPress = document.getElementById("obliqueProj").checked;
+                    if (oPress == true) {
+                        document.getElementById("obliqueProj").checked = false;
+                    } else {
+                        document.getElementById("obliqueProj").checked = true;
+                    }
+                    console.log(oPress);
                 }
-    */
+
+                if (event.keyCode == 82) {
+                    //Orthogonal
+                    projection = 1;
+                    document.getElementById("currentProj").innerText = "Orthogonal";
+                    console.log(projection);
+                }
+
+                if (event.keyCode == 80) {
+                    //Perspective
+                    projection = 0;
+                    document.getElementById("currentProj").innerText = "Perspective";
+                    console.log(projection);
+                }
+            }
+
+            var projection = 1;
         </script>
         <script>
             function webGLStart() {
@@ -718,6 +744,8 @@
 
                 gl.clearColor(0.0,1.0,0.5,1.0);
                 gl.enable(gl.DEPTH_TEST);
+
+                document.onkeypress = handleKeyPress;
 
                 tick();
             }
@@ -815,8 +843,20 @@
                 <input type="range" min="-20.0" max="0.0" class="slider" id="house4Z" value="-8.0">
             </div>
             <br>
-            <div>
-
+            <div style="background: darkgray;">
+                <h2>Oblique Projection Angles</h2>
+                Use Oblique Projection: 
+                <input type="checkbox" id="obliqueProj" value="false"><span>    Press O to Toggle  </span><br>
+                Theta
+                <input type="range" min="-180" max="180" class="slider" id="theta" value="30">
+                Phi
+                <input type="range" min="-180" max="180" class="slider" id="phi" value="30">
+            </div>
+            <br>
+            <div style="background: darkgray;">
+                <h2>Projection: <span id="currentProj">Orthogonal</span></h2>
+                <h3>Press R for Orthogonal Projection</h3>
+                <h3>Press P for Perspective Projection</h3>
             </div>
         </div>
     </body>
