@@ -184,6 +184,30 @@
                 roofVertexPositionBuffer.itemSize = 3;
                 roofVertexPositionBuffer.numItems = 12;
 
+                roofVertexNormalBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexNormalBuffer);
+                var vertexRNormals = [
+                    // Front face
+                    0.0, 0.0,  1.0,
+                    0.0, 0.0,  1.0,
+                    0.0, 0.0,  1.0,
+                    // Right face
+                    1.0, 0.0,  0.0,
+                    1.0, 0.0,  0.0,
+                    1.0, 0.0,  0.0,
+                    // Back face
+                    0.0, 0.0,  -1.0,
+                    0.0, 0.0,  -1.0,
+                    0.0, 0.0,  -1.0,
+                    // Left face
+                    -1.0, 0.0,  0.0,
+                    -1.0, 0.0,  0.0,
+                    -1.0, 0.0,  0.0
+                ];
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexRNormals), gl.STATIC_DRAW);
+                roofVertexNormalBuffer.itemSize = 3;
+                roofVertexNormalBuffer.numItems = 12;
+
                 houseVertexPositionBuffer = gl.createBuffer();
                 gl.bindBuffer(gl.ARRAY_BUFFER,houseVertexPositionBuffer);
                 vertices = [
@@ -314,9 +338,9 @@
                 }*/
                 pMatrix = createIDMatrix();
                 //createOblique(180, 180);
-                createOrthographic(-4, 4, -4, 4, 0, 100);
+                //createOrthographic(-4, 4, -4, 4, 0, 100);
                 //mat4.ortho(-4, 4, -4, 4, 0, 100, pMatrix);
-                //createPerspective(45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0);
+                createPerspective(45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0);
                 //mat4.perspective(45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0, pMatrix);
 
                 //mat4.identity(mvMatrix);
@@ -337,12 +361,19 @@
 
                 mvPushMatrix();
                 translate(-2.0, 1.0, -6.0);
-                rotateY(45);
+                rotateY(10);
                 rotateX(0);
                 scale(0.5,0.5,0.5);
 
                 gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexPositionBuffer);
                 gl.vertexAttribPointer(shader_program.vertexPositionAttribute, roofVertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
+                gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexNormalBuffer);
+                gl.vertexAttribPointer(shader_program.vertexNormalAttribute, roofVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+                
+                lights = vec3.normalize([4.0, 5.0, -7.0]);
+                gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
+                gl.uniform4fv(shader_program.colorLocation, [0.6, 0.6, 0.2, 1]);
+                
                 setMatrixUniforms();
                 gl.drawArrays(gl.TRIANGLES, 0, roofVertexPositionBuffer.numItems);
             
@@ -356,12 +387,19 @@
 
                 mvPushMatrix();
                 translate(-1.0, 0.75, -10.0);
-                rotateY(45);
+                rotateY(15);
                 rotateX(0);
-                scale(0.75,0.25,0.5);
+                scale(0.5,0.25,0.75);
 
                 gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexPositionBuffer);
                 gl.vertexAttribPointer(shader_program.vertexPositionAttribute, roofVertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
+                gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexNormalBuffer);
+                gl.vertexAttribPointer(shader_program.vertexNormalAttribute, roofVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+                
+                lights = vec3.normalize([-5.0, 1.0, -2.0]);
+                gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
+                gl.uniform4fv(shader_program.colorLocation, [0.1, 0.6, 0.4, 1]);
+                
                 setMatrixUniforms();
                 gl.drawArrays(gl.TRIANGLES, 0, roofVertexPositionBuffer.numItems);
             
@@ -375,12 +413,19 @@
 
                 mvPushMatrix();
                 translate(1.5, 1.0, -14.0);
-                rotateY(45);
+                rotateY(15);
                 rotateX(0);
                 scale(0.5,0.5,0.5);
 
                 gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexPositionBuffer);
                 gl.vertexAttribPointer(shader_program.vertexPositionAttribute, roofVertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
+                gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexNormalBuffer);
+                gl.vertexAttribPointer(shader_program.vertexNormalAttribute, roofVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+                
+                lights = vec3.normalize([-15.0, -1.0, -12.0]);
+                gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
+                gl.uniform4fv(shader_program.colorLocation, [0.6, 0.1, 0.2, 1]);
+
                 setMatrixUniforms();
                 gl.drawArrays(gl.TRIANGLES, 0, roofVertexPositionBuffer.numItems);
             
@@ -393,13 +438,20 @@
                 ///////////////////////////
 
                 mvPushMatrix();
-                translate(3.0, 1.75, -8.0);
-                rotateY(45);
+                translate(3.0, 1.5, -8.0);
+                rotateY(15);
                 rotateX(0);
-                scale(0.5,1.0,0.5);
+                scale(0.7,1.0,0.7);
 
                 gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexPositionBuffer);
                 gl.vertexAttribPointer(shader_program.vertexPositionAttribute, roofVertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
+                gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexNormalBuffer);
+                gl.vertexAttribPointer(shader_program.vertexNormalAttribute, roofVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+                
+                lights = vec3.normalize([-1.0, 3.0, -12.0]);
+                gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
+                gl.uniform4fv(shader_program.colorLocation, [0.6, 0.1, 0.7, 1]);
+
                 setMatrixUniforms();
                 gl.drawArrays(gl.TRIANGLES, 0, roofVertexPositionBuffer.numItems);
             
@@ -414,7 +466,7 @@
 
                 translate(-2.0, 0.0, -6.0);       
                 rotateX(0);
-                rotateY(-45);            
+                rotateY(10);            
                 
                 scale(0.5,0.5,0.5);
 
@@ -426,7 +478,7 @@
                 
                 lights = vec3.normalize([4.0, 0.0, -7.0]);
                 gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
-                gl.uniform4fv(shader_program.colorLocation, [0.6, 0.1, 0.2, 1]);
+                gl.uniform4fv(shader_program.colorLocation, [0.6, 0.6, 0.2, 1]);
 
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
                 setMatrixUniforms();
@@ -443,18 +495,18 @@
 
                 translate(-1.0, 0.0, -10.0);       
                 rotateX(0);
-                rotateY(-45);            
+                rotateY(15);            
                 
-                scale(0.75,0.5,0.5);
+                scale(0.5,0.5,0.7);
 
                 gl.bindBuffer(gl.ARRAY_BUFFER, houseVertexPositionBuffer);
                 gl.vertexAttribPointer(shader_program.vertexPositionAttribute, houseVertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
                 gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
                 gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
                 
-                lights = vec3.normalize([10.0, 3.0, -12.0]);
+                lights = vec3.normalize([-5.0, 1.0, -2.0]);
                 gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
-                gl.uniform4fv(shader_program.colorLocation, [0.6, 0.1, 0.2, 1]);
+                gl.uniform4fv(shader_program.colorLocation, [0.1, 0.6, 0.4, 1]);
 
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
                 setMatrixUniforms();
@@ -471,7 +523,7 @@
 
                 translate(1.5, 0.0, -14.0);       
                 rotateX(0);
-                rotateY(-45);            
+                rotateY(15);            
                 
                 scale(0.5,0.5,0.5);
 
@@ -480,7 +532,7 @@
                 gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
                 gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
                 
-                lights = vec3.normalize([10.0, 3.0, -12.0]);
+                lights = vec3.normalize([-15.0, 1.0, -12.0]);
                 gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
                 gl.uniform4fv(shader_program.colorLocation, [0.6, 0.1, 0.2, 1]);
 
@@ -499,9 +551,9 @@
 
                 translate(3.0, 0.0, -8.0);       
                 rotateX(0);
-                rotateY(-45);            
+                rotateY(15);            
                 
-                scale(0.5,0.75,0.5);
+                scale(0.5,0.5,0.5);
 
                 gl.bindBuffer(gl.ARRAY_BUFFER, houseVertexPositionBuffer);
                 gl.vertexAttribPointer(shader_program.vertexPositionAttribute, houseVertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
@@ -509,34 +561,12 @@
                 gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
                 gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
                 
-                /*//lighting
-                gl.uniform1i(shader_program.samplerUniform, 0);
-                var lighting = true;
-                gl.uniform1i(shader_program.useLightingUniform, lighting);
-                if (lighting) {
-                    gl.uniform3f(
-                        shader_program.ambientColorUniform,
-                        1.0, 0.2, 0.2   //Ambient RGB
-                    );
-                }
-                
-                var lightingDirection = [
-                    10.0, 5.0, -12.0  //lighting direction x, y, z
-                ];
-                var adjustedLD = vec3.create();
-                vec3.normalize(lightingDirection, adjustedLD);
-                vec3.scale(adjustedLD, -1);*/
-                lights = vec3.normalize([10.0, 3.0, -12.0]);
+                lights = vec3.normalize([-1.0, 3.0, -12.0]);
                 gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
-                gl.uniform4fv(shader_program.colorLocation, [0.6, 0.1, 0.2, 1]);
+                gl.uniform4fv(shader_program.colorLocation, [0.6, 0.1, 0.7, 1]);
                 gl.uniform3f(shader_program.ambientColorUniform, 
-                            0.5, 0.1, 0.4 );
-/*
-                gl.uniform3f(
-                    shader_program.directionalColorUniform,
-                    1.5, 0.2, 0.3   //directional RGB
-                )
-                //////////*/
+                            0.1, 0.1, 0.1 );
+
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
                 setMatrixUniforms();
                 gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
@@ -643,7 +673,8 @@
 
                 mat4.multiply(mvMatrix, translateMatrix);
             }
-
+        </script>
+        <script>
             function tick(){
                 requestAnimFrame(tick);
                 drawScene();
