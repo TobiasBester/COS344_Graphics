@@ -355,12 +355,18 @@
 
                 mvMatrix = createIDMatrix();
                 
+                hz1 = parseFloat(document.getElementById("house1Z").value);
+                hz2 = parseFloat(document.getElementById("house2Z").value);
+                hz3 = parseFloat(document.getElementById("house3Z").value);
+                hz4 = parseFloat(document.getElementById("house4Z").value);
+
                 ///////////////////////////
                 /////     ROOF 1   ////////
                 ///////////////////////////
 
                 mvPushMatrix();
-                translate(-2.0, 1.0, -6.0);
+                
+                translate(-2.0, 1.0, hz1);
                 rotateY(10);
                 rotateX(0);
                 scale(0.5,0.5,0.5);
@@ -369,7 +375,7 @@
                 gl.vertexAttribPointer(shader_program.vertexPositionAttribute, roofVertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
                 gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexNormalBuffer);
                 gl.vertexAttribPointer(shader_program.vertexNormalAttribute, roofVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
-                
+
                 lights = vec3.normalize([4.0, 5.0, -7.0]);
                 gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
                 gl.uniform4fv(shader_program.colorLocation, [0.6, 0.6, 0.2, 1]);
@@ -386,7 +392,7 @@
                 ///////////////////////////
 
                 mvPushMatrix();
-                translate(-1.0, 0.75, -10.0);
+                translate(-1.0, 0.75, hz2);
                 rotateY(15);
                 rotateX(0);
                 scale(0.5,0.25,0.75);
@@ -412,7 +418,7 @@
                 ///////////////////////////
 
                 mvPushMatrix();
-                translate(1.5, 1.0, -14.0);
+                translate(1.5, 1.0, hz3);
                 rotateY(15);
                 rotateX(0);
                 scale(0.5,0.5,0.5);
@@ -438,7 +444,7 @@
                 ///////////////////////////
 
                 mvPushMatrix();
-                translate(3.0, 1.5, -8.0);
+                translate(3.0, 1.5,hz4);
                 rotateY(15);
                 rotateX(0);
                 scale(0.7,1.0,0.7);
@@ -464,7 +470,7 @@
                 ///////////////////////////
                 mvPushMatrix();
 
-                translate(-2.0, 0.0, -6.0);       
+                translate(-2.0, 0.0, hz1);       
                 rotateX(0);
                 rotateY(10);            
                 
@@ -493,7 +499,7 @@
                 ///////////////////////////
                 mvPushMatrix();
 
-                translate(-1.0, 0.0, -10.0);       
+                translate(-1.0, 0.0, hz2);       
                 rotateX(0);
                 rotateY(15);            
                 
@@ -521,7 +527,7 @@
                 ///////////////////////////
                 mvPushMatrix();
 
-                translate(1.5, 0.0, -14.0);       
+                translate(1.5, 0.0, hz3);       
                 rotateX(0);
                 rotateY(15);            
                 
@@ -549,7 +555,7 @@
                 ///////////////////////////
                 mvPushMatrix();
 
-                translate(3.0, 0.0, -8.0);       
+                translate(3.0, 0.0, hz4);       
                 rotateX(0);
                 rotateY(15);            
                 
@@ -694,6 +700,16 @@
             }
         </script>
         <script>
+    /*
+                var slider1 = document.getElementById("house1Z");
+                var slider1Val = document.getElementById("h1zvalue");
+                slider1Val.innerText = slider1;
+                slider1.oninput = function() {
+                    slider1Val.innerText = this.value;
+                }
+    */
+        </script>
+        <script>
             function webGLStart() {
                 var canvas = document.getElementById("webgl-intro");
                 intiGL(canvas);
@@ -703,7 +719,6 @@
                 gl.clearColor(0.0,1.0,0.5,1.0);
                 gl.enable(gl.DEPTH_TEST);
 
-                //drawScene();
                 tick();
             }
         </script>
@@ -786,5 +801,23 @@
     </head>
     <body onload="webGLStart();">
         <canvas id="webgl-intro" width="800" height="600"></canvas>
+        <div style="float: right; background: lightskyblue; padding: 10px;">
+            <h1>Controls</h1>
+            <div style="background: darkgray;">
+                <h2>House Z Values</h2>
+                House 1:
+                <input type="range" min="-20.0" max="0.0" class="slider" id="house1Z" value="-6.0">
+                House 2:
+                <input type="range" min="-20.0" max="0.0" class="slider" id="house2Z" value="-10.0">
+                <br>House 3:
+                <input type="range" min="-20.0" max="0.0" class="slider" id="house3Z" value="-14.0">
+                House 4:
+                <input type="range" min="-20.0" max="0.0" class="slider" id="house4Z" value="-8.0">
+            </div>
+            <br>
+            <div>
+
+            </div>
+        </div>
     </body>
 </html>
