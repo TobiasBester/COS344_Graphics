@@ -57,12 +57,19 @@
             */
 
             var myTexture;
+            var leafTexture;
 
             function initTextures() {
                 myTexture = gl.createTexture();
+                leafTexture = gl.createTexture();
                 myTexture.image = new Image();
+                leafTexture.image = new Image();
                 myTexture.image.onload = function () {
                     handleLoadedTexture(myTexture);
+                    textureImagesLoaded++;
+                }
+                leafTexture.image.onload = function() {
+                    handleLoadedTexture(leafTexture);
                     textureImagesLoaded++;
                     if (textureImagesLoaded >= numTextures) {
                         draw();
@@ -70,6 +77,8 @@
                 }
 
                 myTexture.image.src = "./multiTextures2.png";
+                leafTexture.image.src = "./leaves.png";
+                
             }
 
             function handleLoadedTexture(texture) {
@@ -90,9 +99,7 @@
 
         </script>
         <script>
-            var mvMatrix = mat4.create();
-            var mvMatrixStack = [];
-            var pMatrix = mat4.create();
+            
 
             function degToRad(degrees){
                 return degrees * Math.PI/ 180;
@@ -119,6 +126,9 @@
             var cubeVertexPositionBuffer;
             var cubeVertexIndexBuffer;
             var cubeVertexTextureCoordBuffer;
+
+            var pyrVertexPositionBuffer;
+            var pyrVertexTextureCoordBuffer;
 
             function initBuffers() {
                 cubeVertexPositionBuffer = gl.createBuffer();
@@ -222,6 +232,63 @@
                 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoords), gl.STATIC_DRAW);
                 cubeVertexTextureCoordBuffer.itemSize = 2;
                 cubeVertexTextureCoordBuffer.numItems = 24;
+
+                pyrVertexPositionBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, pyrVertexPositionBuffer);
+                var vertices = [
+                    // Front Face
+                     0.0,  1.0,  0.0,       // Top point
+                    -1.0, -1.0,  1.0,       // BottomLeft point
+                     1.0, -1.0,  1.0,       // BottomRight point
+
+                    // Right Face
+                     0.0,  1.0,  0.0,
+                     1.0, -1.0,  1.0,
+                     1.0, -1.0, -1.0,
+
+                    // Back Face
+                     0.0,  1.0,  0.0,
+                     1.0, -1.0, -1.0,
+                    -1.0, -1.0, -1.0,
+
+                    // Left Face
+                     0.0,  1.0,  0.0,
+                    -1.0, -1.0, -1.0,
+                    -1.0, -1.0,  1.0,  
+                ];
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+                pyrVertexPositionBuffer.itemSize = 3;
+                pyrVertexPositionBuffer.numItems = 12;
+
+                pyrVertexTextureCoordBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, pyrVertexTextureCoordBuffer);
+                var textureCoords = [
+                    // Front Face
+                     0.0,  0.5,       // Top point
+                     0.0,  0.0,       // BottomLeft point
+                     1.0,  0.0,       // BottomRight point
+
+                    // Right Face
+                     0.0,  0.5,       // Top point
+                     0.0,  0.0,       // BottomLeft point
+                     1.0,  0.0,       // BottomRight point
+
+                     // Back Face
+                     0.0,  0.5,       // Top point
+                     0.0,  0.0,       // BottomLeft point
+                     1.0,  0.0,       // BottomRight point
+
+                     // Left Face
+                     0.0,  0.5,       // Top point
+                     0.0,  0.0,       // BottomLeft point
+                     1.0,  0.0,       // BottomRight point
+
+                ];
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+                pyrVertexTextureCoordBuffer.itemSize = 2;
+                pyrVertexTextureCoordBuffer.numItems = 12;
+
+
             }
         </script>
         <script type="text/javascript">
@@ -293,19 +360,38 @@
             var yRot = 45;
             var zRot = 0;
 
+            function createIDMatrix() {
+                    return new Float32Array (
+                        [1, 0, 0, 0,
+                         0, 1, 0, 0,
+                         0, 0, 1, 0,
+                         0, 0, 0, 1]
+                    );
+            }
+
+            var mvMatrix = mat4.create();
+            var mvMatrixStack = [];
+            var pMatrix = mat4.create();
+
             function drawScene() {
+                pMatrix = createIDMatrix();
                 gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
                 gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-                mat4.perspective(45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0, pMatrix);
-                
+                createPerspective(60, gl.viewportWidth/ gl.viewportHeight, 1, 100);
+                // createOrthographic(-4, 4, -4, 4,0 , 100);
+
                 mat4.identity(mvMatrix);
 
-                mat4.translate(mvMatrix, [0.0, 0.0, -5.0]);
+                ///////////// CUBE 1 /////////////////////
+                mvPushMatrix();
 
-                mat4.rotate(mvMatrix, degToRad(xRot), [1, 0, 0]);
-                mat4.rotate(mvMatrix, degToRad(yRot), [0, 1, 0]);
-                mat4.rotate(mvMatrix, degToRad(zRot), [0, 0, 1]);
+                translate(0.0, -1.0, -5.0);
+
+                rotateX(0);
+                rotateY(15);
+                rotateZ(0);
+                scale(0.2, 1.3, 0.2);
 
                 /* Here we bind the buffer to the appropriate attribute so that it is visible for the shaders */
                 gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexPositionBuffer);
@@ -323,7 +409,247 @@
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
                 setMatrixUniforms();
                 gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+                mvPopMatrix();
+                ///////////// PYRAMID 1 /////////////////////
+                mvPushMatrix();
+
+                translate(0.0, 0.0, -5.0);
+
+                rotateX(0);
+                rotateY(15);
+                rotateZ(0);
+
+                /* Here we bind the buffer to the appropriate attribute so that it is visible for the shaders */
+                gl.bindBuffer(gl.ARRAY_BUFFER, pyrVertexPositionBuffer);
+                gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, 
+                pyrVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, pyrVertexTextureCoordBuffer);
+                gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, 
+                pyrVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);    
+                
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, leafTexture);
+                gl.uniform1i(shaderProgram.samplerUniform, 0);
+
+                setMatrixUniforms();
+                gl.drawArrays(gl.TRIANGLES, 0, pyrVertexPositionBuffer.numItems);
+                
+                /////////// Pyramid 2 ////////////
+                translate(0.0, 1.0, 0.0);
+                scale(0.7, 0.7, 0.7);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, pyrVertexPositionBuffer);
+                gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, 
+                pyrVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, pyrVertexTextureCoordBuffer);
+                gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, 
+                pyrVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);    
+                
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, leafTexture);
+                gl.uniform1i(shaderProgram.samplerUniform, 0);
+
+                setMatrixUniforms();
+                gl.drawArrays(gl.TRIANGLES, 0, pyrVertexPositionBuffer.numItems);
+
+                /////////// Pyramid 3 ////////////
+                
+                translate(0.0, 1.0, 0.0);
+                scale(0.7, 0.7, 0.7);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, pyrVertexPositionBuffer);
+                gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, 
+                pyrVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, pyrVertexTextureCoordBuffer);
+                gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, 
+                pyrVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);    
+                
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, leafTexture);
+                gl.uniform1i(shaderProgram.samplerUniform, 0);
+
+                setMatrixUniforms();
+                gl.drawArrays(gl.TRIANGLES, 0, pyrVertexPositionBuffer.numItems);
+
+                mvPopMatrix();
             }
+        </script>
+        <script>
+                //Translate Function
+                function translate(a,b,c){
+                    translateMatrix = [
+                        1.0, 0.0, 0.0, 0.0,
+                        0.0, 1.0, 0.0, 0.0,
+                        0.0, 0.0, 1.0, 0.0,
+                        a, b, c, 1.0
+                    ];
+    
+                    mat4.multiply(mvMatrix, translateMatrix);
+                }
+    
+                //Rotate along Z-axis Function
+                function rotateZ(theta){
+                    translateMatrix = [
+                        Math.cos(theta), Math.sin(theta), 0.0, 0.0,
+                        -Math.sin(theta), Math.cos(theta), 0.0, 0.0,
+                        0.0, 0.0, 1.0, 0.0,
+                        0, 0, 0, 1.0
+                    ];
+    
+                    mat4.multiply(mvMatrix, translateMatrix);
+                }
+    
+                //Rotate along Y-axis Function
+                function rotateY(theta){
+                    translateMatrix = [
+                        Math.cos(theta), 0.0, -Math.sin(theta), 0.0,
+                        0.0, 1.0, 0.0, 0.0,
+                        Math.sin(theta), 0.0, Math.cos(theta), 0.0,
+                        0.0, 0.0, 0.0, 1.0
+                    ];
+    
+                    mat4.multiply(mvMatrix, translateMatrix);
+                }
+    
+                //Rotate along X-axis Function
+                function rotateX(theta){
+                    translateMatrix = [
+                        1.0, 0.0, 0.0, 0.0,
+                        0.0, Math.cos(theta), Math.sin(theta), 0.0,
+                        0.0, -Math.sin(theta), Math.cos(theta), 0.0,
+                        0, 0, 0, 1.0
+                    ];
+    
+                    mat4.multiply(mvMatrix, translateMatrix);
+                }
+    
+                //Scale Function
+                function scale(betaX,betaY,betaZ){
+                    translateMatrix = [
+                        betaX, 0.0, 0.0, 0.0,
+                        0.0, betaY, 0.0, 0.0,
+                        0.0, 0.0, betaZ, 0.0,
+                        0, 0, 0, 1.0
+                    ];
+    
+                    mat4.multiply(mvMatrix, translateMatrix);
+                }
+    
+                //Shear along X Axis Function
+                function shearX(theta){
+                    translateMatrix = [
+                        1.0, 0.0, 0.0, 0.0,
+                        1/Math.tan(theta), 1.0, 0.0, 0.0,
+                        0.0, 0.0, 1.0, 0.0,
+                        0, 0, 0, 1.0
+                    ];
+    
+                    mat4.multiply(mvMatrix, translateMatrix);
+                }
+    
+                //Shear along Y Axis Function
+                function shearY(theta){
+                    translateMatrix = [
+                        1.0, 0.0, 0.0, 0.0,
+                        0.0, 1.0, 0.0, 0.0,
+                        0.0, 1/Math.tan(theta), 1.0, 0.0,
+                        0, 0, 0, 1.0
+                    ];
+    
+                    mat4.multiply(mvMatrix, translateMatrix);
+                }
+    
+                //Shear along Z Axis Function
+                function shearZ(theta){
+                    translateMatrix = [
+                        1.0, 0.0, 1/Math.tan(theta), 0.0,
+                        0.0, 1.0, 0.0, 0.0,
+                        0.0, 0.0, 1.0, 0.0,
+                        0, 0, 0, 1.0
+                    ];
+    
+                    mat4.multiply(mvMatrix, translateMatrix);
+                }
+        </script>
+        <script>
+                function createOrthographic(left, right, bottom, top, near, far) {
+                    mid_x = (left + right)/2;
+                    mid_y = (bottom + top)/2;
+                    mid_z = (-near + -far)/2;
+    /*
+                    centerAboutOrigin = [
+                        1.0, 0.0, 0.0, 0.0,
+                        0.0, 1.0, 0.0, 0.0,
+                        0.0, 0.0, 1.0, 0.0,
+                        -mid_x, -mid_y, -mid_z, 1.0
+                    ];
+                    mat4.multiply(pMatrix, centerAboutOrigin);
+    */
+                    scale_x = 2.0/(right - left);
+                    scale_y = 2.0/(top - bottom);
+                    scale_z = 2.0/(far-near);
+    /*
+                    scaleViewingVolume = [
+                        scale_x, 0.0, 0.0, 0.0,
+                        0.0, scale_y, 0.0, 0.0,
+                        0.0, 0.0, -scale_z, 0.0,
+                        0.0, 0.0, 0.0, 1.0
+                    ];
+                    mat4.multiply(pMatrix, scaleViewingVolume);*/
+    
+                    orthoMat = [
+                        scale_x, 0.0, 0.0, 0.0,
+                        0.0, scale_y, 0.0, 0.0,
+                        0.0, 0.0,-scale_z, 0.0,
+                        mid_x * -(scale_x), mid_y * -(scale_y), mid_z * (scale_z), 1.0 
+                    ];
+    
+                    mat4.multiply(pMatrix, orthoMat);
+                }
+    
+                function createPerspective(fovy, aspect, near, far) {
+                    // Fovy cannot be > 180degrees
+                    // Aspect ratio is width/height
+                    // near and far > 0
+                    // near < far
+                    var top, bottom, left, right;
+                    top = near * Math.tan(degToRad(fovy)/2);
+                    bottom = -top;
+                    right = top * aspect;
+                    left = -right;
+    
+                    createFrustum(left, right, bottom, top, near, far);
+                }
+    
+                function createFrustum(left, right, bottom, top, near, far) {
+                    frustum = [
+                        (2*near)/(right-left), 0.0, 0.0, 0.0,
+                        0.0, (2*near)/(top-bottom), 0.0, 0.0,
+                        (right+left)/(right-left), (top+bottom)/(top-bottom), -((far+near)/(far-near)), -1.0,
+                        0.0, 0.0, (-2*far*near)/(far-near), 0.0
+                    ];
+    
+                    mat4.multiply(pMatrix, frustum);
+                }
+    
+                function createOblique(theta, phi) {
+                    cotTheta = 1/Math.tan(theta);
+                    cotPhi = 1/Math.tan(phi);
+    
+                    oblique = [
+                        1.0, 0.0, 0.0, 0.0,
+                        0.0, 1.0, 0.0, 0.0,
+                        cotTheta, cotPhi, 0.0, 0.0,
+                        0.0, 0.0, 0.0, 1.0
+                    ];
+    
+                    mat4.multiply(pMatrix, oblique);
+                }
+    
         </script>
         <script>
             var prevTime = 0;
@@ -364,6 +690,6 @@
         </script>
     </head>
     <body onload="webGLStart()">
-        <canvas id="webgl-intro" width="800" height="600"></canvas>
+        <canvas id="webgl-intro" width="1000" height="600"></canvas>
     </body>
 </html>
