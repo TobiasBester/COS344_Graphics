@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+    <head>
+        <!--script>var exports = {};</script>
+        <script type="text/javascript" src="scripts/require.js"></script>
+        <!--script type="text/javascript" src="gl-matrix.js"></script-->
+        <script type="text/javascript" src="scripts/glMatrix-0.9.5.min.js"></script>
+        <script type="text/javascript" src="scripts/webgl-utils.js"></script>
+        <script type="text/javascript">
+            var gl;
+            function intiGL(canvas) {
+                try {
+                    gl = canvas.getContext("webgl");
+                    gl.viewportWidth = canvas.width;
+                    gl.viewportHeight = canvas.height;
+                }
+                catch(e){
+
+                }
+                if (!gl){
+                    alert("Could not initialise WebGL!");
+                }
+            }
+        </script>
+        <script id="shader-vs" type="x-shader/x-vertex">
+            attribute vec3 vertexPosition;
+            attribute vec3 aVertexNormal;
+
+            uniform mat4 uMVMatrix;
+            uniform mat4 uPMatrix;
+            uniform mat3 uNMatrix;
+
+            uniform vec3 uAmbientColor;
+
+            varying vec3 v_normal;
+
+            void main(void) {
+                gl_Position = uPMatrix * uMVMatrix * vec4(vertexPosition, 1.0);
+                v_normal = aVertexNormal;
+            }
+        </script>
+        <script id="shader-fs" type="x-shader/x-fragment">
+            precision mediump float;
+
+            varying vec3 vLightWeighting;
+            uniform sampler2D uSampler;
+
+            varying vec3 v_normal;
+            uniform vec3 u_reverseLD;
+            uniform vec4 u_color;
+            uniform vec3 u_ambient;
+
+            void main(void){
+                vec3 normal =  normalize(v_normal);
+                float light = dot(normal, u_reverseLD);
+                gl_FragColor = u_color;
+                gl_FragColor.rgb *= light + u_ambient;
+            }
+        </script>
+        <script type="text/javascript">
+            function getShader(gl, id){
+                var shaderScript = document.getElementById(id);
+                if (!shaderScript) {
+                    return null;
+                }
+                var str ="";
+                var k = shaderScript.firstChild;
+                while(k){
+                    if (k.nodeType == 3){
+                        str += k.textContent;
+                    }
+                    k = k.nextSibling;
+                }
+            
+
+                var shader;
+                if (shaderScript.type == "x-shader/x-fragment"){
+                    shader = gl.createShader(gl.FRAGMENT_SHADER);
+                } else if (shaderScript.type == "x-shader/x-vertex") {
+                    shader = gl.createShader(gl.VERTEX_SHADER);
+                } else {
+                    return null;
+                }
+
+                gl.shaderSource(shader,str);
+                gl.compileShader(shader);
+
+                if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                    alert(gl.getShaderInfoLog(shader));
+                    return null;
+                }
+
+                return shader;
+            }
+        </script>
+        <script>
+            var shader_program;
+
+            function initShaders(){
+                var fragmentShader = getShader(gl, "shader-fs");
+                var vertexShader = getShader(gl, "shader-vs");
+
+                shader_program = gl.createProgram();
+                gl.attachShader(shader_program, vertexShader);
+                gl.attachShader(shader_program,fragmentShader);
+                gl.linkProgram(shader_program);
+
+                if (!gl.getProgramParameter(shader_program, gl.LINK_STATUS)){
+                    alert("Could_not_initialise_shaders");
+                }
+
+                gl.useProgram(shader_program);
+                
+                shader_program.vertexPositionAttribute = gl.getAttribLocation(shader_program,"vertexPosition");
+                gl.enableVertexAttribArray(shader_program.vertexPositionAttribute);
+                shader_program.vertexNormalAttribute = gl.getAttribLocation(shader_program,"aVertexNormal");
+                gl.enableVertexAttribArray(shader_program.vertexNormalAttribute);
+
+                shader_program.pMatrixLocation = gl.getUniformLocation(shader_program,"uPMatrix");
+                shader_program.mvMatrixLocation = gl.getUniformLocation(shader_program, "uMVMatrix");
+                shader_program.nMatrixUniform = gl.getUniformLocation(shader_program, "uNMatrix");
+                shader_program.ambientColorUniform = gl.getUniformLocation(shader_program, "u_ambient");
+                shader_program.lightingDirectionUniform = gl.getUniformLocation(shader_program, "u_reverseLD");
+                shader_program.colorLocation = gl.getUniformLocation(shader_program, "u_color");
+            }
+        </script>
+        <script>
+            var mvMatrix = mat4.create();
+            var mvMatrixStack = [];
+            var pMatrix = mat4.create();
+
+            function mvPushMatrix(){
+                var copy = mat4.create();
+                mat4.set(mvMatrix, copy);
+                mvMatrixStack.push(copy);
+            }
+
+            function mvPopMatrix(){
+                if (mvMatrixStack.length == 0){
+                    throw "Invalid popMatrix!";
+                }
+                mvMatrix = mvMatrixStack.pop();
+            }
+
+            function degToRoad(degrees){
+                return degrees * Math.PI/ 180;
+            }
+
+            function setMatrixUniforms() {
+                gl.uniformMatrix4fv(shader_program.pMatrixLocation, false, pMatrix);
+                gl.uniformMatrix4fv(shader_program.mvMatrixLocation, false, mvMatrix);
+
+                var normalMatrix = mat3.create();
+                mat4.toInverseMat3(mvMatrix, normalMatrix);
+                mat3.transpose(normalMatrix);
+                gl.uniformMatrix3fv(shader_program.nMatrixUniform, false, normalMatrix);
+            }
+
+            var roofVertexPositionBuffer;
+            var houseVertexPositionBuffer;
+            var cubeVertexIndexBuffer;
+
+            function initBuffers() {
+                roofVertexPositionBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexPositionBuffer);
+                var vertices = [
+                    // Front face
+                    0.0,  1.0,  0.0,
+                    -1.0, -1.0,  1.0,
+                    1.0, -1.0,  1.0,
+                    // Right face
+                    0.0,  1.0,  0.0,
+                    1.0, -1.0,  1.0,
+                    1.0, -1.0, -1.0,
+                    // Back face
+                    0.0,  1.0,  0.0,
+                    1.0, -1.0, -1.0,
+                    -1.0, -1.0, -1.0,
+                    // Left face
+                    0.0,  1.0,  0.0,
+                    -1.0, -1.0, -1.0,
+                    -1.0, -1.0,  1.0
+                ];
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+                roofVertexPositionBuffer.itemSize = 3;
+                roofVertexPositionBuffer.numItems = 12;
+
+                roofVertexNormalBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexNormalBuffer);
+                var vertexRNormals = [
+                    // Front face
+                    0.0, 0.0,  1.0,
+                    0.0, 0.0,  1.0,
+                    0.0, 0.0,  1.0,
+                    // Right face
+                    1.0, 0.0,  0.0,
+                    1.0, 0.0,  0.0,
+                    1.0, 0.0,  0.0,
+                    // Back face
+                    0.0, 0.0,  -1.0,
+                    0.0, 0.0,  -1.0,
+                    0.0, 0.0,  -1.0,
+                    // Left face
+                    -1.0, 0.0,  0.0,
+                    -1.0, 0.0,  0.0,
+                    -1.0, 0.0,  0.0
+                ];
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexRNormals), gl.STATIC_DRAW);
+                roofVertexNormalBuffer.itemSize = 3;
+                roofVertexNormalBuffer.numItems = 12;
+
+                houseVertexPositionBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER,houseVertexPositionBuffer);
+                vertices = [
+                    // Front face
+                    -1.0, -1.0,  1.0,
+                    1.0, -1.0,  1.0,
+                    1.0,  1.0,  1.0,
+                    -1.0,  1.0,  1.0,
+
+                    // Back face
+                    -1.0, -1.0, -1.0,
+                    -1.0,  1.0, -1.0,
+                    1.0,  1.0, -1.0,
+                    1.0, -1.0, -1.0,
+
+                    // Top face
+                    -1.0,  1.0, -1.0,
+                    -1.0,  1.0,  1.0,
+                    1.0,  1.0,  1.0,
+                    1.0,  1.0, -1.0,
+
+                    // Bottom face
+                    -1.0, -1.0, -1.0,
+                    1.0, -1.0, -1.0,
+                    1.0, -1.0,  1.0,
+                    -1.0, -1.0,  1.0,
+
+                    // Right face
+                    1.0, -1.0, -1.0,
+                    1.0,  1.0, -1.0,
+                    1.0,  1.0,  1.0,
+                    1.0, -1.0,  1.0,
+
+                    // Left face
+                    -1.0, -1.0, -1.0,
+                    -1.0, -1.0,  1.0,
+                    -1.0,  1.0,  1.0,
+                    -1.0,  1.0, -1.0,
+                ];
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+                houseVertexPositionBuffer.itemSize = 3;
+                houseVertexPositionBuffer.numItems = 24;
+
+                //Define element array buffer
+                cubeVertexIndexBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
+                var cubeVertexIndices = [
+                    0, 1, 2,      0, 2, 3,    // Front face
+                    4, 5, 6,      4, 6, 7,    // Back face
+                    8, 9, 10,     8, 10, 11,  // Top face
+                    12, 13, 14,   12, 14, 15, // Bottom face
+                    16, 17, 18,   16, 18, 19, // Right face
+                    20, 21, 22,   20, 22, 23  // Left face
+                ]
+                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cubeVertexIndices), gl.STATIC_DRAW);
+                cubeVertexIndexBuffer.itemSize = 1;
+                cubeVertexIndexBuffer.numItems = 36;
+
+                //cube vertex Normal buffers
+                cubeVertexNormalBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
+                var vertexNormals = [
+                    // Front face
+                    0.0, 0.0,  1.0,
+                    0.0, 0.0,  1.0,
+                    0.0, 0.0,  1.0,
+                    0.0, 0.0,  1.0,
+
+                    // Back face
+                    0.0, 0.0, -1.0,
+                    0.0, 0.0, -1.0,
+                    0.0, 0.0, -1.0,
+                    0.0, 0.0, -1.0,
+
+                    // Top face
+                    0.0, 1.0,  0.0,
+                    0.0, 1.0,  0.0,
+                    0.0, 1.0,  0.0,
+                    0.0, 1.0,  0.0,
+
+                    // Bottom face
+                    0.0, -1.0, 0.0,
+                    0.0, -1.0, 0.0,
+                    0.0, -1.0, 0.0,
+                    0.0, -1.0, 0.0,
+
+                    // Right face
+                    1.0, 0.0,  0.0,
+                    1.0, 0.0,  0.0,
+                    1.0, 0.0,  0.0,
+                    1.0, 0.0,  0.0,
+
+                    // Left face
+                    -1.0, 0.0,  0.0,
+                    -1.0, 0.0,  0.0,
+                    -1.0, 0.0,  0.0,
+                    -1.0, 0.0,  0.0,
+                ];
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexNormals), gl.STATIC_DRAW);
+                cubeVertexNormalBuffer.itemSize = 3;
+                cubeVertexNormalBuffer.numItems = 24;
+            }
+
+            var rRoof1 = 0;       //used to track rotation
+            var rHouse1 = 0;
+            var rRoof2 = 0;       //used to track rotation
+            var rHouse2 = 0;
+            var rRoof3 = 0;       //used to track rotation
+            var rHouse3 = 0;
+            var rRoof4 = 0;       //used to track rotation
+            var rHouse4 = 0;
+
+
+            function drawScene() {
+
+                gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+                document.getElementById("theta").step = "3";
+                document.getElementById("phi").step = "3";
+                theta = parseInt(document.getElementById("theta").value);
+                phi = parseInt(document.getElementById("phi").value);
+                oblChecked = document.getElementById("obliqueProj").checked;
+                aChecked = document.getElementById("ambLight").checked;
+
+                pMatrix = createIDMatrix();
+
+                if (oblChecked == true) {
+                    createOblique(theta, phi);
+                }
+
+                if (projection == 1) {
+                    createOrthographic(-4, 4, -4, 4, 0, 100);  
+                } else {
+                    createPerspective(45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0);    
+                }
+
+                //createOrthographic(-4, 4, -4, 4, 0, 100);
+                //mat4.ortho(-4, 4, -4, 4, 0, 100, pMatrix);
+                //createPerspective(45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0);
+                //mat4.perspective(45, gl.viewportWidth/ gl.viewportHeight, 0.1, 100.0, pMatrix);
+
+                //mat4.identity(mvMatrix);
+                function createIDMatrix() {
+                    return new Float32Array (
+                        [1, 0, 0, 0,
+                         0, 1, 0, 0,
+                         0, 0, 1, 0,
+                         0, 0, 0, 1]
+                    );
+                }
+
+                mvMatrix = createIDMatrix();
+                
+                hz1 = parseFloat(document.getElementById("house1Z").value);
+                hz2 = parseFloat(document.getElementById("house2Z").value);
+                hz3 = parseFloat(document.getElementById("house3Z").value);
+                hz4 = parseFloat(document.getElementById("house4Z").value);
+                xDir = -(parseFloat(document.getElementById("xDir").value));
+                yDir = -(parseFloat(document.getElementById("yDir").value));
+                zDir = -(parseFloat(document.getElementById("zDir").value));
+
+                document.getElementById("xDir").step = "0.5";
+                document.getElementById("yDir").step = "0.5";
+                document.getElementById("zDir").step = "1.0";
+
+                ///////////////////////////
+                /////     ROOF 1   ////////
+                ///////////////////////////
+
+                mvPushMatrix();
+                
+                translate(-2.0, 1.0, hz1);
+                rotateY(10);
+                rotateX(0);
+                scale(0.5,0.5,0.5);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, roofVertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
+                gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexNormalBuffer);
+                gl.vertexAttribPointer(shader_program.vertexNormalAttribute, roofVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+                lights = vec3.normalize([xDir, yDir, zDir]);
+                gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
+                gl.uniform4fv(shader_program.colorLocation, [0.6, 0.6, 0.2, 1]);
+                
+                setMatrixUniforms();
+                gl.drawArrays(gl.TRIANGLES, 0, roofVertexPositionBuffer.numItems);
+            
+                mvPopMatrix();
+
+                //////////////////////////////////
+
+                 ///////////////////////////
+                /////     ROOF 2   ////////
+                ///////////////////////////
+
+                mvPushMatrix();
+                translate(-1.0, 0.75, hz2);
+                rotateY(15);
+                rotateX(0);
+                scale(0.5,0.25,0.75);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, roofVertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
+                gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexNormalBuffer);
+                gl.vertexAttribPointer(shader_program.vertexNormalAttribute, roofVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+                
+                lights = vec3.normalize([xDir, yDir, zDir]);
+                gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
+                gl.uniform4fv(shader_program.colorLocation, [0.1, 0.6, 0.4, 1]);
+                
+                setMatrixUniforms();
+                gl.drawArrays(gl.TRIANGLES, 0, roofVertexPositionBuffer.numItems);
+            
+                mvPopMatrix();
+
+                //////////////////////////////////
+
+                 ///////////////////////////
+                /////     ROOF 3   ////////
+                ///////////////////////////
+
+                mvPushMatrix();
+                translate(1.5, 1.0, hz3);
+                rotateY(15);
+                rotateX(0);
+                scale(0.5,0.5,0.5);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, roofVertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
+                gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexNormalBuffer);
+                gl.vertexAttribPointer(shader_program.vertexNormalAttribute, roofVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+                
+                lights = vec3.normalize([xDir, yDir, zDir]);
+                gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
+                gl.uniform4fv(shader_program.colorLocation, [0.6, 0.1, 0.2, 1]);
+
+                setMatrixUniforms();
+                gl.drawArrays(gl.TRIANGLES, 0, roofVertexPositionBuffer.numItems);
+            
+                mvPopMatrix();
+
+                //////////////////////////////////
+
+                 ///////////////////////////
+                /////     ROOF 4   ////////
+                ///////////////////////////
+
+                mvPushMatrix();
+                translate(3.0, 1.5,hz4);
+                rotateY(15);
+                rotateX(0);
+                scale(0.7,1.0,0.7);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, roofVertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
+                gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexNormalBuffer);
+                gl.vertexAttribPointer(shader_program.vertexNormalAttribute, roofVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+                
+                lights = vec3.normalize([xDir, yDir, zDir]);
+                gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
+                gl.uniform4fv(shader_program.colorLocation, [0.6, 0.1, 0.7, 1]);
+
+                setMatrixUniforms();
+                gl.drawArrays(gl.TRIANGLES, 0, roofVertexPositionBuffer.numItems);
+            
+                mvPopMatrix();
+
+                //////////////////////////////////
+
+                ///////////////////////////
+                /////   HOUSE1       //////
+                ///////////////////////////
+                mvPushMatrix();
+
+                translate(-2.0, 0.0, hz1);       
+                rotateX(0);
+                rotateY(10);            
+                
+                scale(0.5,0.5,0.5);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, houseVertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, houseVertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
+                
+                gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
+                gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+                
+                lights = vec3.normalize([xDir, yDir, zDir]);
+                gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
+                gl.uniform4fv(shader_program.colorLocation, [0.6, 0.6, 0.2, 1]);
+
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
+                setMatrixUniforms();
+                gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+                mvPopMatrix();
+
+                //////////////////////////////////////
+
+                ///////////////////////////
+                /////   HOUSE2       //////
+                ///////////////////////////
+                mvPushMatrix();
+
+                translate(-1.0, 0.0, hz2);       
+                rotateX(0);
+                rotateY(15);            
+                
+                scale(0.5,0.5,0.7);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, houseVertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, houseVertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
+                gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
+                gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+                
+                lights = vec3.normalize([xDir, yDir, zDir]);
+                gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
+                gl.uniform4fv(shader_program.colorLocation, [0.1, 0.6, 0.4, 1]);
+
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
+                setMatrixUniforms();
+                gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+                mvPopMatrix();
+
+                //////////////////////////////////////
+
+                ///////////////////////////
+                /////   HOUSE3       //////
+                ///////////////////////////
+                mvPushMatrix();
+
+                translate(1.5, 0.0, hz3);       
+                rotateX(0);
+                rotateY(15);            
+                
+                scale(0.5,0.5,0.5);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, houseVertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, houseVertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
+                gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
+                gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+                
+                lights = vec3.normalize([xDir, yDir, zDir]);
+                gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
+                gl.uniform4fv(shader_program.colorLocation, [0.6, 0.1, 0.2, 1]);
+
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
+                setMatrixUniforms();
+                gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+                mvPopMatrix();
+
+                //////////////////////////////////////
+
+                ///////////////////////////
+                /////   HOUSE4       //////
+                ///////////////////////////
+                mvPushMatrix();
+
+                translate(3.0, 0.0, hz4);       
+                rotateX(0);
+                rotateY(15);            
+                
+                scale(0.5,0.5,0.5);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, houseVertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, houseVertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
+                
+                gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
+                gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+                
+                lights = vec3.normalize([xDir, yDir, zDir]);
+                gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
+                gl.uniform4fv(shader_program.colorLocation, [0.6, 0.1, 0.7, 1]);
+
+                if (aChecked) {
+                    gl.uniform3f(shader_program.ambientColorUniform, 
+                            0.9, 0.3, 0.3 );
+                } else {
+                    gl.uniform3f(shader_program.ambientColorUniform, 
+                            0.0, 0.0, 0.0 );
+                }
+
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
+                setMatrixUniforms();
+                gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+                mvPopMatrix();
+
+                //////////////////////////////////////
+            }
+
+        </script>
+        <script>
+            //Translate Function
+            function translate(a,b,c){
+                translateMatrix = [
+                    1.0, 0.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    a, b, c, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Rotate along Z-axis Function
+            function rotateZ(theta){
+                translateMatrix = [
+                    Math.cos(theta), Math.sin(theta), 0.0, 0.0,
+                    -Math.sin(theta), Math.cos(theta), 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0, 0, 0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Rotate along Y-axis Function
+            function rotateY(theta){
+                translateMatrix = [
+                    Math.cos(theta), 0.0, -Math.sin(theta), 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    Math.sin(theta), 0.0, Math.cos(theta), 0.0,
+                    0.0, 0.0, 0.0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Rotate along X-axis Function
+            function rotateX(theta){
+                translateMatrix = [
+                    1.0, 0.0, 0.0, 0.0,
+                    0.0, Math.cos(theta), Math.sin(theta), 0.0,
+                    0.0, -Math.sin(theta), Math.cos(theta), 0.0,
+                    0, 0, 0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Scale Function
+            function scale(betaX,betaY,betaZ){
+                translateMatrix = [
+                    betaX, 0.0, 0.0, 0.0,
+                    0.0, betaY, 0.0, 0.0,
+                    0.0, 0.0, betaZ, 0.0,
+                    0, 0, 0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Shear along X Axis Function
+            function shearX(theta){
+                translateMatrix = [
+                    1.0, 0.0, 0.0, 0.0,
+                    1/Math.tan(theta), 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0, 0, 0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Shear along Y Axis Function
+            function shearY(theta){
+                translateMatrix = [
+                    1.0, 0.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 1/Math.tan(theta), 1.0, 0.0,
+                    0, 0, 0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+
+            //Shear along Z Axis Function
+            function shearZ(theta){
+                translateMatrix = [
+                    1.0, 0.0, 1/Math.tan(theta), 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0, 0, 0, 1.0
+                ];
+
+                mat4.multiply(mvMatrix, translateMatrix);
+            }
+        </script>
+        <script>
+            function tick(){
+                requestAnimFrame(tick);
+                drawScene();
+                animate();
+            }
+
+            var lastTime = 0;
+            function animate(){
+                var timeNow = new Date().getTime();
+                if (lastTime != 0){
+                    var elapsed = timeNow - lastTime;
+
+                  //  rPyramid += (90 * elapsed)/1000.0;
+                   // rCube -= (75 * elapsed)/1000.0;
+                }
+                lastTime = timeNow;
+            }
+        </script>
+        <script>
+            function handleKeyPress(event){
+                if (event.keyCode == 79) {
+                    console.log("O pressed");
+                    oPress = document.getElementById("obliqueProj").checked;
+                    if (oPress == true) {
+                        document.getElementById("obliqueProj").checked = false;
+                    } else {
+                        document.getElementById("obliqueProj").checked = true;
+                    }
+                    console.log(oPress);
+                }
+
+                if (event.keyCode == 82) {
+                    //Orthogonal
+                    projection = 1;
+                    document.getElementById("currentProj").innerText = "Orthogonal";
+                    console.log(projection);
+                }
+
+                if (event.keyCode == 80) {
+                    //Perspective
+                    projection = 0;
+                    document.getElementById("currentProj").innerText = "Perspective";
+                    console.log(projection);
+                }
+
+                if (event.keyCode == 65) {
+                    //Ambient
+                    aPress = document.getElementById("ambLight").checked;
+                    if (aPress == true) {
+                        document.getElementById("ambLight").checked = false;
+                    } else {
+                        document.getElementById("ambLight").checked = true;
+                    }
+                    console.log(aPress);
+                }
+            }
+
+            var projection = 0;
+        </script>
+        <script>
+            function webGLStart() {
+                var canvas = document.getElementById("webgl-intro");
+                intiGL(canvas);
+                initShaders();
+                initBuffers();
+
+                gl.clearColor(0.0,1.0,0.5,1.0);
+                gl.enable(gl.DEPTH_TEST);
+
+                document.onkeypress = handleKeyPress;
+
+                tick();
+            }
+        </script>
+        <script>
+            function createOrthographic(left, right, bottom, top, near, far) {
+                mid_x = (left + right)/2;
+                mid_y = (bottom + top)/2;
+                mid_z = (-near + -far)/2;
+/*
+                centerAboutOrigin = [
+                    1.0, 0.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    -mid_x, -mid_y, -mid_z, 1.0
+                ];
+                mat4.multiply(pMatrix, centerAboutOrigin);
+*/
+                scale_x = 2.0/(right - left);
+                scale_y = 2.0/(top - bottom);
+                scale_z = 2.0/(far-near);
+/*
+                scaleViewingVolume = [
+                    scale_x, 0.0, 0.0, 0.0,
+                    0.0, scale_y, 0.0, 0.0,
+                    0.0, 0.0, -scale_z, 0.0,
+                    0.0, 0.0, 0.0, 1.0
+                ];
+                mat4.multiply(pMatrix, scaleViewingVolume);*/
+
+                orthoMat = [
+                    scale_x, 0.0, 0.0, 0.0,
+                    0.0, scale_y, 0.0, 0.0,
+                    0.0, 0.0,-scale_z, 0.0,
+                    mid_x * -(scale_x), mid_y * -(scale_y), mid_z * (scale_z), 1.0 
+                ];
+
+                mat4.multiply(pMatrix, orthoMat);
+            }
+
+            function createPerspective(fovy, aspect, near, far) {
+                // Fovy cannot be > 180degrees
+                // Aspect ratio is width/height
+                // near and far > 0
+                // near < far
+                var top, bottom, left, right;
+                top = near * Math.tan(degToRoad(fovy)/2);
+                bottom = -top;
+                right = top * aspect;
+                left = -right;
+
+                createFrustum(left, right, bottom, top, near, far);
+            }
+
+            function createFrustum(left, right, bottom, top, near, far) {
+                frustum = [
+                    (2*near)/(right-left), 0.0, 0.0, 0.0,
+                    0.0, (2*near)/(top-bottom), 0.0, 0.0,
+                    (right+left)/(right-left), (top+bottom)/(top-bottom), -((far+near)/(far-near)), -1.0,
+                    0.0, 0.0, (-2*far*near)/(far-near), 0.0
+                ];
+
+                mat4.multiply(pMatrix, frustum);
+            }
+
+            function createOblique(theta, phi) {
+                cotTheta = 1/Math.tan(theta);
+                cotPhi = 1/Math.tan(phi);
+
+                oblique = [
+                    1.0, 0.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    cotTheta, cotPhi, 0.0, 0.0,
+                    0.0, 0.0, 0.0, 1.0
+                ];
+
+                mat4.multiply(pMatrix, oblique);
+            }
+
+        </script>
+    </head>
+    <body onload="webGLStart();">
+        <canvas id="webgl-intro" width="800" height="600"></canvas>
+        <div style="float: right; background: lightskyblue; padding: 10px;">
+            <h1>Controls</h1>
+            <div style="background: darkgray;padding:5px;">
+                <h2>House Z Values</h2>
+                House 1:
+                <input type="range" min="-20.0" max="0.0" class="slider" id="house1Z" value="-6.0">
+                House 2:
+                <input type="range" min="-20.0" max="0.0" class="slider" id="house2Z" value="-10.0">
+                <br>House 3:
+                <input type="range" min="-20.0" max="0.0" class="slider" id="house3Z" value="-14.0">
+                House 4:
+                <input type="range" min="-20.0" max="0.0" class="slider" id="house4Z" value="-8.0">
+            </div>
+            <br>
+            <div style="background: darkgray;padding:5px;">
+                <h2>Oblique Projection Angles</h2>
+                Use Oblique Projection: 
+                <input type="checkbox" id="obliqueProj" value="false"><span>    Press O to Toggle  </span><br>
+                Theta
+                <input type="range" min="-180" max="180" class="slider" id="theta" value="30">
+                Phi
+                <input type="range" min="-180" max="180" class="slider" id="phi" value="30">
+            </div>
+            <br>
+            <div style="background: darkgray;padding:5px;">
+                <h2>Projection: <span id="currentProj">Perspective</span></h2>
+                <h3>Press R for Orthogonal Projection</h3>
+                <h3>Press P for Perspective Projection</h3>
+            </div>
+            <br>
+            <div style="background: darkgray; padding:5px;">
+                <h2>Lighting</h2>
+                Point Source Light X Direction:
+                <input type="range" min="-8.0" max="8.0" class="slider" id="xDir" value="6.0"><br>
+                Point Source Light Y Direction:
+                <input type="range" min="-8.0" max="8.0" class="slider" id="yDir" value="1.0"><br>
+                Point Source Light Z Direction:
+                <input type="range" min="0.0" max="15.0" class="slider" id="zDir" value="5.0"><br>
+                Use Ambient Light: 
+                <input type="checkbox" id="ambLight" value="false"><span>    Press A to Toggle  </span><br>
+            </div>
+        </div>
+    </body>
+</html>
