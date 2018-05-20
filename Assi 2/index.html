@@ -70,18 +70,21 @@
             uniform vec4 u_color;
             uniform vec3 u_ambient;
 
+            uniform float uAlpha;
+
             void main(void){
                 vec3 normal =  normalize(v_normal);
                 vec4 dark = vec4(0, 0, 0, 1.0);
-                vec4 tex = texture2D(uSampler, vTextureCoord);
+                vec4 tex = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
 
                 float light = dot(normal, u_reverseLD);
                 float diffuse = max(0.0, light);
                 vec4 color = mix(dark, tex, 0.1 + 0.9 * diffuse);
-
+                
                 // gl_FragColor = u_color;
                 gl_FragColor = color;
                 gl_FragColor.rgb *= light + u_ambient;
+                // gl_FragColor.a *= uAlpha;
             }
         </script>
         <script type="text/javascript">
@@ -151,6 +154,7 @@
                 shader_program.lightingDirectionUniform = gl.getUniformLocation(shader_program, "u_reverseLD");
                 shader_program.colorLocation = gl.getUniformLocation(shader_program, "u_color");
                 shader_program.uSampler = gl.getUniformLocation(shader_program, 'uSampler');
+                shader_program.alphaUniform = gl.getUniformLocation(shader_program, "uAlpha");
             }
         </script>
         <script>
@@ -746,6 +750,13 @@
                     gl.uniform3f(shader_program.ambientColorUniform, 
                             0.0, 0.0, 0.0 );
                 }
+
+                /*
+                gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+                gl.enable(gl.BLEND);
+                gl.disable(gl.DEPTH_TEST);
+                gl.uniform1f(shader_program.alphaUniform, 0.7);
+                */
 
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
                 setMatrixUniforms();
