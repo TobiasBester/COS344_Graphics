@@ -22,26 +22,47 @@
             }
         </script>
         <script id="shader-vs" type="x-shader/x-vertex">
+            // #extension GL_OES_standard_derivatives : enable
             attribute vec3 vertexPosition;
             attribute vec3 aVertexNormal;
+            attribute vec2 aTextureCoord;
 
             uniform mat4 uMVMatrix;
             uniform mat4 uPMatrix;
             uniform mat3 uNMatrix;
+            uniform sampler2D uCarveTexture;
 
             uniform vec3 uAmbientColor;
 
             varying vec3 v_normal;
+            varying highp vec2 vTextureCoord;
+
+            /*
+            vec3 getNormal() {
+                vec3 dPosdx = dFdx(vertexPosition);
+                vec3 dPosdy = dFdy(vertexPosition);
+                float depth = texture2D(uCarveTexture, vTextureCoord).a;
+                float dDepthdx = dFdx(depth);
+                float dDepthdy = dFdy(depth);
+                dPosdx -= 10.0 * dDepthdx * v_normal;
+                dPosdy -= 10.0 * dDepthdy * v_normal;
+
+                return normalize(cross(dPosdx, dPosdy));
+            } */
 
             void main(void) {
                 gl_Position = uPMatrix * uMVMatrix * vec4(vertexPosition, 1.0);
                 v_normal = aVertexNormal;
+                vTextureCoord = aTextureCoord;
             }
         </script>
         <script id="shader-fs" type="x-shader/x-fragment">
+            // #extension GL_OES_standard_derivatives : enable
             precision mediump float;
 
             varying vec3 vLightWeighting;
+            varying vec2 vTextureCoord;
+
             uniform sampler2D uSampler;
 
             varying vec3 v_normal;
@@ -51,8 +72,15 @@
 
             void main(void){
                 vec3 normal =  normalize(v_normal);
+                vec4 dark = vec4(0, 0, 0, 1.0);
+                vec4 tex = texture2D(uSampler, vTextureCoord);
+
                 float light = dot(normal, u_reverseLD);
-                gl_FragColor = u_color;
+                float diffuse = max(0.0, light);
+                vec4 color = mix(dark, tex, 0.1 + 0.9 * diffuse);
+
+                // gl_FragColor = u_color;
+                gl_FragColor = color;
                 gl_FragColor.rgb *= light + u_ambient;
             }
         </script>
@@ -94,7 +122,6 @@
         </script>
         <script>
             var shader_program;
-
             function initShaders(){
                 var fragmentShader = getShader(gl, "shader-fs");
                 var vertexShader = getShader(gl, "shader-vs");
@@ -114,6 +141,8 @@
                 gl.enableVertexAttribArray(shader_program.vertexPositionAttribute);
                 shader_program.vertexNormalAttribute = gl.getAttribLocation(shader_program,"aVertexNormal");
                 gl.enableVertexAttribArray(shader_program.vertexNormalAttribute);
+                shader_program.textureCoord = gl.getAttribLocation(shader_program,"aTextureCoord");
+                gl.enableVertexAttribArray(shader_program.textureCoord);
 
                 shader_program.pMatrixLocation = gl.getUniformLocation(shader_program,"uPMatrix");
                 shader_program.mvMatrixLocation = gl.getUniformLocation(shader_program, "uMVMatrix");
@@ -121,6 +150,65 @@
                 shader_program.ambientColorUniform = gl.getUniformLocation(shader_program, "u_ambient");
                 shader_program.lightingDirectionUniform = gl.getUniformLocation(shader_program, "u_reverseLD");
                 shader_program.colorLocation = gl.getUniformLocation(shader_program, "u_color");
+                shader_program.uSampler = gl.getUniformLocation(shader_program, 'uSampler');
+            }
+        </script>
+        <script>
+            var wallTexture;
+            var wallNormalTexture;
+            function initTextures() {
+                wallTexture = gl.createTexture();
+                wallNormalTexture = gl.createTexture();
+                gl.bindTexture(gl.TEXTURE_2D, wallTexture);
+                gl.bindTexture(gl.TEXTURE_2D, wallNormalTexture);
+
+                const level = 0;
+                const internalFormat = gl.RGBA;
+                const width = 1;
+                const height = 1;
+                const border = 0;
+                const srcFormat = gl.RGBA;
+                const srcType = gl.UNSIGNED_BYTE;
+                const pixel = new Uint8Array([0, 0, 255, 255]);
+                gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, width,
+                                height, border, srcFormat, srcType, pixel);
+
+                const wallImage = new Image();
+                const wallNImage = new Image();
+
+                wallImage.onload = function () {
+                    gl.bindTexture(gl.TEXTURE_2D, wallTexture);
+                    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, srcFormat, srcType, wallImage);
+
+                    if (isPowerOf2(wallImage.width) && isPowerOf2(wallImage.height)) {
+                        gl.generateMipmap(gl.TEXTURE_2D);
+                    } else {
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                    }
+                };
+
+                wallNImage.onload = function () {
+                    gl.bindTexture(gl.TEXTURE_2D, wallNormalTexture);
+                    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, srcFormat, srcType, wallNImage);
+
+                    if (isPowerOf2(wallNImage.width) && isPowerOf2(wallNImage.height)) {
+                        gl.generateMipmap(gl.TEXTURE_2D);
+                    } else {
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                    }
+                };
+
+                wallImage.src = "./assets/plaster-002_b030-g100.jpg";
+                wallNImage.src = "./assets/plaster-002_d100-(s020).jpg";
+                // return wallTexture;                       
+            }
+
+            function isPowerOf2(value) {
+                return (value & (value - 1)) == 0;
             }
         </script>
         <script>
@@ -158,6 +246,7 @@
             var roofVertexPositionBuffer;
             var houseVertexPositionBuffer;
             var cubeVertexIndexBuffer;
+            var roofVertexIndexBuffer;
 
             function initBuffers() {
                 roofVertexPositionBuffer = gl.createBuffer();
@@ -207,6 +296,18 @@
                 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexRNormals), gl.STATIC_DRAW);
                 roofVertexNormalBuffer.itemSize = 3;
                 roofVertexNormalBuffer.numItems = 12;
+
+                roofVertexIndexBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexIndexBuffer);
+                var indices = [
+                    0, 3, 1,
+                    1, 3, 2,
+                    2, 3, 0,
+                    0, 1, 2
+                ];
+                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+                roofVertexIndexBuffer.itemSize = 1;
+                roofVertexIndexBuffer.numItems = 12;
 
                 houseVertexPositionBuffer = gl.createBuffer();
                 gl.bindBuffer(gl.ARRAY_BUFFER,houseVertexPositionBuffer);
@@ -309,6 +410,51 @@
                 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexNormals), gl.STATIC_DRAW);
                 cubeVertexNormalBuffer.itemSize = 3;
                 cubeVertexNormalBuffer.numItems = 24;
+
+                cubeVertexTextureCoordBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexTextureCoordBuffer);
+                // These texture coords specify where in Cartesian (x,y) coords the vertex lies in the texture
+                var textureCoords = [
+                    // Front face - bottomleft image
+                    0.0, 0.0,       // bottom left
+                    1.0, 0.0,      // bottom right
+                    1.0, 1.0,      // top right
+                    0.0, 1.0,       // top left
+                    
+                    // Back Face - bottommright image
+                    0.0, 0.0,
+                    1.0, 0.0,
+                    1.0, 1.0,
+                    0.0, 1.0,
+
+                    // Top Face - bottommiddle image
+                    0.0, 0.0,
+                    1.0, 0.0,
+                    1.0, 1.0,
+                    0.0, 1.0,
+
+                    // Bottom Face - topleft image
+                    0.0, 0.0,
+                    1.0, 0.0,
+                    1.0, 1.0,
+                    0.0, 1.0,
+
+                    // Right Face - topmiddle image
+                    0.0, 0.0,
+                    1.0, 0.0,
+                    1.0, 1.0,
+                    0.0, 1.0,
+
+                    // Left Face  - topright image
+                    0.0, 0.0,
+                    1.0, 0.0,
+                    1.0, 1.0,
+                    0.0, 1.0,
+
+                ];
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoords), gl.STATIC_DRAW);
+                cubeVertexTextureCoordBuffer.itemSize = 2;
+                cubeVertexTextureCoordBuffer.numItems = 24;
             }
 
             var rRoof1 = 0;       //used to track rotation
@@ -381,7 +527,7 @@
                 mvPushMatrix();
                 
                 translate(-2.0, 1.0, hz1);
-                rotateY(10);
+                rotateY(40);
                 rotateX(0);
                 scale(0.5,0.5,0.5);
 
@@ -486,7 +632,7 @@
 
                 translate(-2.0, 0.0, hz1);       
                 rotateX(0);
-                rotateY(10);            
+                rotateY(40);            
                 
                 scale(0.5,0.5,0.5);
 
@@ -499,6 +645,14 @@
                 lights = vec3.normalize([xDir, yDir, zDir]);
                 gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
                 gl.uniform4fv(shader_program.colorLocation, [0.6, 0.6, 0.2, 1]);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexTextureCoordBuffer);
+                gl.vertexAttribPointer(shader_program.textureCoord,
+                cubeVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, wallTexture);
+                gl.uniform1i(shader_program.uSampler, 0);
 
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
                 setMatrixUniforms();
@@ -764,8 +918,10 @@
             function webGLStart() {
                 var canvas = document.getElementById("webgl-intro");
                 intiGL(canvas);
+                gl.getExtension('OES_standard_derivatives');
                 initShaders();
                 initBuffers();
+                initTextures();
 
                 gl.clearColor(0.0,1.0,0.5,1.0);
                 gl.enable(gl.DEPTH_TEST);
