@@ -31,19 +31,28 @@
             uniform mat4 uPMatrix;
             uniform mat3 uNMatrix;
 
-            // uniform sampler2D uCarveTexture;
+            uniform sampler2D uNormalTex;
 
             uniform vec3 uAmbientColor;
             uniform vec3 uLightingDirection;
             uniform vec3 uDirectionalColor;
+            uniform bool bumpOn;
 
             varying vec3 vLightWeighting;
+            varying vec3 vNormal;
             varying highp vec2 vTextureCoord;
 
             void main(void) {
+
                 gl_Position = uPMatrix * uMVMatrix * vec4(vertexPosition, 1.0);
                 vTextureCoord = aTextureCoord;
                 vec3 transformedNormal = uNMatrix * aVertexNormal;
+
+                if (bumpOn) {
+                    transformedNormal = normalize(texture2D(uNormalTex, vTextureCoord).rgb*2.0 - 1.0);
+                }
+
+                vNormal = transformedNormal;
                 float directionalLightWeighting = max(dot(transformedNormal, uLightingDirection), 0.0);
                 vLightWeighting = uAmbientColor + uDirectionalColor * directionalLightWeighting;
             }
@@ -54,6 +63,7 @@
 
             varying vec3 vLightWeighting;
             varying vec2 vTextureCoord;
+            varying vec3 vPosition;
 
             uniform sampler2D uSampler;
 
@@ -62,8 +72,6 @@
 
             void main(void){
                 vec4 textureColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
-
-                // gl_FragColor = textureColor;
                 if (alphaOn) {
                     gl_FragColor = vec4(textureColor.rgb * vLightWeighting, textureColor.a * uAlpha);
                 } else {
@@ -109,7 +117,7 @@
                 return shader;
             }
         </script>
-        <script>
+        <script>    //Shaders
             var shader_program;
             function initShaders(){
                 var fragmentShader = getShader(gl, "shader-fs");
@@ -139,25 +147,37 @@
                 shader_program.ambientColorUniform = gl.getUniformLocation(shader_program, "uAmbientColor");
                 shader_program.lightingDirectionUniform = gl.getUniformLocation(shader_program, "uLightingDirection");
                 shader_program.directionalColorUniform = gl.getUniformLocation(shader_program, "uDirectionalColor");
+                shader_program.specularColorUniform = gl.getUniformLocation(shader_program, "uSpecularColor");
                 shader_program.uSampler = gl.getUniformLocation(shader_program, 'uSampler');
+                shader_program.uNormalTex = gl.getUniformLocation(shader_program, 'uNormalTex');
                 shader_program.alphaUniform = gl.getUniformLocation(shader_program, "uAlpha");
                 shader_program.useAlpha = gl.getUniformLocation(shader_program, "alphaOn");
+                shader_program.useBumpMapping = gl.getUniformLocation(shader_program, "bumpOn");
             }
         </script>
-        <script>
-            var wallTexture;
-            var leavesTexture;
-            var pebbleTexture;
+        <script>    //Textures
+            var treeTexture;
+            var treeNormTex;
+            var forestTexture;
+            var grassTexture;
+            var biscTexture;
             var starTexture;
+            var sandTexture;
             function initTextures() {
-                wallTexture = gl.createTexture();
-                leavesTexture = gl.createTexture();
-                pebbleTexture = gl.createTexture();
+                treeTexture = gl.createTexture();
+                treeNormTex = gl.createTexture();
+                forestTexture = gl.createTexture();
+                grassTexture = gl.createTexture();
+                biscTexture = gl.createTexture();
                 starTexture = gl.createTexture();
-                gl.bindTexture(gl.TEXTURE_2D, wallTexture);
-                gl.bindTexture(gl.TEXTURE_2D, leavesTexture);
-                gl.bindTexture(gl.TEXTURE_2D, pebbleTexture);
+                sandTexture = gl.createTexture();
+                gl.bindTexture(gl.TEXTURE_2D, treeTexture);
+                gl.bindTexture(gl.TEXTURE_2D, treeNormTex);
+                gl.bindTexture(gl.TEXTURE_2D, forestTexture);
+                gl.bindTexture(gl.TEXTURE_2D, grassTexture);
+                gl.bindTexture(gl.TEXTURE_2D, biscTexture);
                 gl.bindTexture(gl.TEXTURE_2D, starTexture);
+                gl.bindTexture(gl.TEXTURE_2D, sandTexture);
 
                 const level = 0;
                 const internalFormat = gl.RGBA;
@@ -170,16 +190,19 @@
                 gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, width,
                                 height, border, srcFormat, srcType, pixel);
 
-                wallTexture.image = new Image();
-                leavesTexture.image = new Image();
-                pebbleTexture.image = new Image();
+                treeTexture.image = new Image();
+                treeNormTex.image = new Image();
+                forestTexture.image = new Image();
+                grassTexture.image = new Image();
+                biscTexture.image = new Image();
+                sandTexture.image = new Image();
                 starTexture.image = new Image();
 
-                wallTexture.image.onload = function () {
-                    gl.bindTexture(gl.TEXTURE_2D, wallTexture);
-                    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, srcFormat, srcType, wallTexture.image);
+                treeTexture.image.onload = function () {
+                    gl.bindTexture(gl.TEXTURE_2D, treeTexture);
+                    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, srcFormat, srcType, treeTexture.image);
 
-                    if (isPowerOf2(wallTexture.image.width) && isPowerOf2(wallTexture.image.height)) {
+                    if (isPowerOf2(treeTexture.image.width) && isPowerOf2(treeTexture.image.height)) {
                         gl.generateMipmap(gl.TEXTURE_2D);
                     } else {
                         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -191,11 +214,27 @@
 
                 };
 
-                leavesTexture.image.onload = function () {
-                    gl.bindTexture(gl.TEXTURE_2D, leavesTexture);
-                    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, srcFormat, srcType, leavesTexture.image);
+                treeNormTex.image.onload = function () {
+                    gl.bindTexture(gl.TEXTURE_2D, treeNormTex);
+                    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, srcFormat, srcType, treeNormTex.image);
 
-                    if (isPowerOf2(leavesTexture.image.width) && isPowerOf2(leavesTexture.image.height)) {
+                    if (isPowerOf2(treeNormTex.image.width) && isPowerOf2(treeNormTex.image.height)) {
+                        gl.generateMipmap(gl.TEXTURE_2D);
+                    } else {
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                        gl.bindTexture(gl.TEXTURE_2D, null);
+                    }
+
+                };
+
+                forestTexture.image.onload = function () {
+                    gl.bindTexture(gl.TEXTURE_2D, forestTexture);
+                    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, srcFormat, srcType, forestTexture.image);
+
+                    if (isPowerOf2(forestTexture.image.width) && isPowerOf2(forestTexture.image.height)) {
                         gl.generateMipmap(gl.TEXTURE_2D);
                     } else {
                         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -206,15 +245,15 @@
                     }
                 };
 
-                pebbleTexture.image.onload = function () {
-                    gl.bindTexture(gl.TEXTURE_2D, pebbleTexture);
-                    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, srcFormat, srcType, pebbleTexture.image);
+                grassTexture.image.onload = function () {
+                    gl.bindTexture(gl.TEXTURE_2D, grassTexture);
+                    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, srcFormat, srcType, grassTexture.image);
 
-                    if (isPowerOf2(pebbleTexture.image.width) && isPowerOf2(pebbleTexture.image.height)) {
+                    if (isPowerOf2(grassTexture.image.width) && isPowerOf2(grassTexture.image.height)) {
                         gl.generateMipmap(gl.TEXTURE_2D);
                     } else {
-                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
                         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
                         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
                         gl.bindTexture(gl.TEXTURE_2D, null);
@@ -235,11 +274,41 @@
                     }
                 };
 
-                wallTexture.image.src = "./assets/plaster-002_b030-g100.jpg";
-                leavesTexture.image.src = "./assets/leaves.png";
-                pebbleTexture.image.src = "./assets/gravel-033_01_pebbles2_2m_d.jpg";
+                biscTexture.image.onload = function () {
+                    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+                    gl.bindTexture(gl.TEXTURE_2D, biscTexture);
+                    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, srcFormat, srcType, biscTexture.image);
+
+                    if (isPowerOf2(biscTexture.image.width) && isPowerOf2(biscTexture.image.height)) {
+                        gl.generateMipmap(gl.TEXTURE_2D);
+                    } else {
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                        gl.bindTexture(gl.TEXTURE_2D, null);
+                    }
+                };
+
+                sandTexture.image.onload = function () {
+                    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+                    gl.bindTexture(gl.TEXTURE_2D, sandTexture);
+                    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, srcFormat, srcType, sandTexture.image);
+
+                    if (isPowerOf2(sandTexture.image.width) && isPowerOf2(sandTexture.image.height)) {
+                        gl.generateMipmap(gl.TEXTURE_2D);
+                    } else {
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                        gl.bindTexture(gl.TEXTURE_2D, null);
+                    }
+                };
+
+                treeTexture.image.src = "./assets/bark/Stylized_Bark_001_COLOR.jpg";
+                treeNormTex.image.src = "./assets/bark/Stylized_Bark_001_NORM.jpg";
+                forestTexture.image.src = "./assets/forest/forest-background.jpg";
+                grassTexture.image.src = "./assets/forest/forest-floor-terrain_0046_01_S_enl.jpg";
+                biscTexture.image.src = "./assets/biscuit/biscuit.jpg";
                 starTexture.image.src = "./assets/star.gif";
-                // return wallTexture;                       
+                sandTexture.image.src = "./assets/sand/Sand 002_COLOR.jpg";                       
             }
 
             function isPowerOf2(value) {
@@ -533,6 +602,51 @@
                 cubeVertexTextureCoordBuffer.itemSize = 2;
                 cubeVertexTextureCoordBuffer.numItems = 24;
 
+                forestVertexTextureCoordBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, forestVertexTextureCoordBuffer);
+                // These texture coords specify where in Cartesian (x,y) coords the vertex lies in the texture
+                textureCoords = [
+                    // Front face - bottomleft image
+                    0.0, 0.0,       // bottom left
+                    1.0, 0.0,      // bottom right
+                    1.0, 1.0,      // top right
+                    0.0, 1.0,       // top left
+                    
+                    // Back Face - bottommright image
+                    1.0, 0.0,
+                    1.0, 1.0,
+                    0.0, 1.0,
+                    0.0, 0.0,
+
+                    // Top Face - bottommiddle image
+                    0.0, 1.0,
+                    0.0, 0.0,
+                    1.0, 0.0,
+                    1.0, 1.0,
+
+                    // Bottom Face - topleft image
+                    1.0, 1.0,
+                    0.0, 1.0,
+                    0.0, 0.0,
+                    1.0, 0.0,
+
+                    // Right Face - topmiddle image
+                    1.0, 0.0,
+                    1.0, 1.0,
+                    0.0, 1.0,
+                    0.0, 0.0,
+
+                    // Left Face  - topright image
+                    0.0, 0.0,
+                    1.0, 0.0,
+                    1.0, 1.0,
+                    0.0, 1.0,
+
+                ];
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoords), gl.STATIC_DRAW);
+                forestVertexTextureCoordBuffer.itemSize = 2;
+                forestVertexTextureCoordBuffer.numItems = 24;
+
                 // SPHERE
                 var latitudeBands = 30;
                 var longitudeBands = 30;
@@ -648,18 +762,14 @@
                 gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
                 gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-                document.getElementById("theta").step = "3";
-                document.getElementById("phi").step = "3";
-                theta = parseInt(document.getElementById("theta").value);
-                phi = parseInt(document.getElementById("phi").value);
-                oblChecked = document.getElementById("obliqueProj").checked;
-                aChecked = document.getElementById("ambLight").checked;
+                // document.getElementById("theta").step = "3";
+                // document.getElementById("phi").step = "3";
+                theta = 30;
+                phi = 30;
 
                 pMatrix = createIDMatrix();
 
-                if (oblChecked == true) {
-                    createOblique(theta, phi);
-                }
+                projection = 0;
 
                 if (projection == 1) {
                     createOrthographic(-4, 4, -4, 4, 0, 100);  
@@ -684,19 +794,16 @@
 
                 mvMatrix = createIDMatrix();
                 
-                hz1 = parseFloat(document.getElementById("house1Z").value);
-                hz2 = parseFloat(document.getElementById("house2Z").value);
-                hz3 = parseFloat(document.getElementById("house3Z").value);
-                hz4 = parseFloat(document.getElementById("house4Z").value);
-                xDir = -(parseFloat(document.getElementById("xDir").value));
-                yDir = -(parseFloat(document.getElementById("yDir").value));
-                zDir = -(parseFloat(document.getElementById("zDir").value));
-
-                document.getElementById("xDir").step = "0.5";
-                document.getElementById("yDir").step = "0.5";
-                document.getElementById("zDir").step = "1.0";
+                hz1 = -6.0;
+                hz2 = -10.0;
+                hz3 = -14.0;
+                hz4 = -8.0;
+                xDir = -(xDirec);
+                yDir = -(yDirec);
+                zDir = -(zDirec);
 
                 var blending = false;
+                var useBumpMapping = false;
                 gl.uniform1i(shader_program.useAlpha, blending);
                 ///////////////////////////
                 /////     ROOF 1   ////////
@@ -704,9 +811,9 @@
                 
                 mvPushMatrix();
                 
-                translate(-2.0, 1.0, hz1);
-                rotateY(40);
-                rotateX(0);
+                translate(-xPos - 2.0, -yPos + 1.1, -zPos - 6.0);
+                rotateX(-pitch);
+                rotateY(-yaw + 40);
                 scale(0.5,0.5,0.5);
 
                 gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexPositionBuffer);
@@ -719,7 +826,7 @@
                 pyrVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);    
                 
                 gl.activeTexture(gl.TEXTURE0);
-                gl.bindTexture(gl.TEXTURE_2D, wallTexture);
+                gl.bindTexture(gl.TEXTURE_2D, treeTexture);
                 gl.uniform1i(shader_program.uSampler, 0);
 
                 if (blending) {
@@ -736,429 +843,16 @@
                 lights = vec3.normalize([xDir, yDir, zDir]);
                 vec3.scale(lights, -1);
                 gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
-                gl.uniform3f(shader_program.directionalColorUniform, 1.0, 0.1, 0.1);
+                gl.uniform3f(shader_program.directionalColorUniform, 0.1, 0.1, 0.1);
                 
                 setMatrixUniforms();
                 gl.drawArrays(gl.TRIANGLES, 0, roofVertexPositionBuffer.numItems);
             
                 mvPopMatrix();
-
-                //////////////////////////////////
-
-                 ///////////////////////////
-                /////     ROOF 2   ////////
-                ///////////////////////////
-
-                mvPushMatrix();
-                translate(-1.0, 0.75, hz2);
-                rotateY(15);
-                rotateX(0);
-                scale(0.5,0.25,0.75);
-
-                gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexPositionBuffer);
-                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, roofVertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
-                gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexNormalBuffer);
-                gl.vertexAttribPointer(shader_program.vertexNormalAttribute, roofVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
                 
-                gl.bindBuffer(gl.ARRAY_BUFFER, pyrVertexTextureCoordBuffer);
-                gl.vertexAttribPointer(shader_program.textureCoord, 
-                pyrVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);    
-                
-                gl.activeTexture(gl.TEXTURE0);
-                gl.bindTexture(gl.TEXTURE_2D, wallTexture);
-                gl.uniform1i(shader_program.uSampler, 0);
+                forestSetup();
 
-                if (blending) {
-                    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-                    gl.enable(gl.BLEND);
-                    gl.disable(gl.DEPTH_TEST);
-                    gl.uniform1f(shader_program.alphaUniform, 0.8);
-                } else {
-                    gl.disable(gl.BLEND);
-                    gl.enable(gl.DEPTH_TEST);
-                }
-
-                lights = vec3.normalize([xDir, yDir, zDir]);
-                vec3.scale(lights, -1);
-                gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
-                gl.uniform3f(shader_program.directionalColorUniform, 0.1, 0.9, 0.6);
-                
-                setMatrixUniforms();
-                gl.drawArrays(gl.TRIANGLES, 0, roofVertexPositionBuffer.numItems);
-            
-                mvPopMatrix();
-
-                //////////////////////////////////
-
-                 ///////////////////////////
-                /////     ROOF 3   ////////
-                ///////////////////////////
-
-                mvPushMatrix();
-                translate(1.5, 1.0, hz3);
-                rotateY(15);
-                rotateX(0);
-                scale(0.5,0.5,0.5);
-
-                gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexPositionBuffer);
-                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, roofVertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
-                gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexNormalBuffer);
-                gl.vertexAttribPointer(shader_program.vertexNormalAttribute, roofVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
-                
-                gl.bindBuffer(gl.ARRAY_BUFFER, pyrVertexTextureCoordBuffer);
-                gl.vertexAttribPointer(shader_program.textureCoord, 
-                pyrVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);    
-                
-                gl.activeTexture(gl.TEXTURE0);
-                gl.bindTexture(gl.TEXTURE_2D, pebbleTexture);
-                gl.uniform1i(shader_program.uSampler, 0);
-
-                if (blending) {
-                    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-                    gl.enable(gl.BLEND);
-                    gl.disable(gl.DEPTH_TEST);
-                    gl.uniform1f(shader_program.alphaUniform, 0.85);
-                } else {
-                    gl.disable(gl.BLEND);
-                    gl.enable(gl.DEPTH_TEST);
-                }
-
-                lights = vec3.normalize([xDir, yDir, zDir]);
-                vec3.scale(lights, -1);
-                gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
-                gl.uniform3f(shader_program.directionalColorUniform, 0.9, 0.6, 0.2);
-
-                setMatrixUniforms();
-                gl.drawArrays(gl.TRIANGLES, 0, roofVertexPositionBuffer.numItems);
-            
-                mvPopMatrix();
-
-                //////////////////////////////////
-
-                 ///////////////////////////
-                /////     ROOF 4   ////////
-                ///////////////////////////
-
-                mvPushMatrix();
-                translate(3.0, 1.5,hz4);
-                rotateY(15);
-                rotateX(0);
-                scale(0.7,1.0,0.7);
-
-                gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexPositionBuffer);
-                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, roofVertexPositionBuffer.itemSize, gl.FLOAT,false,0,0);
-                gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexNormalBuffer);
-                gl.vertexAttribPointer(shader_program.vertexNormalAttribute, roofVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
-                
-                gl.bindBuffer(gl.ARRAY_BUFFER, pyrVertexTextureCoordBuffer);
-                gl.vertexAttribPointer(shader_program.textureCoord, 
-                pyrVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);    
-                
-                gl.activeTexture(gl.TEXTURE0);
-                gl.bindTexture(gl.TEXTURE_2D, wallTexture);
-                gl.uniform1i(shader_program.uSampler, 0);
-
-                if (blending) {
-                    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-                    gl.enable(gl.BLEND);
-                    gl.disable(gl.DEPTH_TEST);
-                    gl.uniform1f(shader_program.alphaUniform, 0.7);
-                } else {
-                    gl.disable(gl.BLEND);
-                    gl.enable(gl.DEPTH_TEST);
-                }
-
-                lights = vec3.normalize([xDir, yDir, zDir]);
-                vec3.scale(lights, -1);
-                gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
-                gl.uniform3f(shader_program.directionalColorUniform, 0.1, 0.1, 0.9);
-
-                setMatrixUniforms();
-                gl.drawArrays(gl.TRIANGLES, 0, roofVertexPositionBuffer.numItems);
-            
-                mvPopMatrix();
-                
-                //////////////////////////////////
-                
-                ///////////////////////////
-                /////   HOUSE1       //////
-                ///////////////////////////
-                mvPushMatrix();
-
-                translate(-2.0, 0.0, hz1);       
-                rotateX(0);
-                rotateY(40);            
-                
-                scale(0.5,0.5,0.5);
-
-                gl.bindBuffer(gl.ARRAY_BUFFER, houseVertexPositionBuffer);
-                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, houseVertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
-                
-                gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
-                gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
-                
-                gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexTextureCoordBuffer);
-                gl.vertexAttribPointer(shader_program.textureCoord, 
-                cubeVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-                gl.activeTexture(gl.TEXTURE0);
-                gl.bindTexture(gl.TEXTURE_2D, wallTexture);
-                gl.uniform1i(shader_program.uSampler, 0);
-
-                if (blending) {
-                    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-                    gl.enable(gl.BLEND);
-                    gl.disable(gl.DEPTH_TEST);
-                    gl.uniform1f(shader_program.alphaUniform, 0.6);
-                } else {
-                    gl.disable(gl.BLEND);
-                    gl.enable(gl.DEPTH_TEST);
-                }
-
-                lights = vec3.normalize([xDir, yDir, zDir]);
-                vec3.scale(lights, -1);
-                gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
-                gl.uniform3f(shader_program.directionalColorUniform, 1.0, 0.1, 0.1);
-
-                if (aChecked) {
-                    gl.uniform3f(shader_program.ambientColorUniform, 
-                            1.0, 0.2, 0.2 );
-                } else {
-                    gl.uniform3f(shader_program.ambientColorUniform, 
-                            0.0, 0.0, 0.0 );
-                }
-
-                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
-                setMatrixUniforms();
-                gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
-
-                mvPopMatrix();
-
-                //////////////////////////////////////
-
-                ///////////////////////////
-                /////   HOUSE2       //////
-                ///////////////////////////
-                mvPushMatrix();
-
-                translate(-1.0, 0.0, hz2);       
-                rotateX(0);
-                rotateY(15);            
-                
-                scale(0.5,0.5,0.7);
-
-                gl.bindBuffer(gl.ARRAY_BUFFER, houseVertexPositionBuffer);
-                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, houseVertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
-                gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
-                gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
-                
-                gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexTextureCoordBuffer);
-                gl.vertexAttribPointer(shader_program.textureCoord, 
-                cubeVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-                gl.activeTexture(gl.TEXTURE0);
-                gl.bindTexture(gl.TEXTURE_2D, wallTexture);
-                gl.uniform1i(shader_program.uSampler, 0);
-
-                if (blending) {
-                    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-                    gl.enable(gl.BLEND);
-                    gl.disable(gl.DEPTH_TEST);
-                    gl.uniform1f(shader_program.alphaUniform, 0.7);
-                } else {
-                    gl.disable(gl.BLEND);
-                    gl.enable(gl.DEPTH_TEST);
-                }
-
-                lights = vec3.normalize([xDir, yDir, zDir]);
-                vec3.scale(lights, -1);
-                gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
-                gl.uniform3f(shader_program.directionalColorUniform, 0.1, 0.9, 0.6);
-
-                if (aChecked) {
-                    gl.uniform3f(shader_program.ambientColorUniform, 
-                            0.9, 0.3, 0.3 );
-                } else {
-                    gl.uniform3f(shader_program.ambientColorUniform, 
-                            0.0, 0.0, 0.0 );
-                }
-
-                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
-                setMatrixUniforms();
-                gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
-
-                mvPopMatrix();
-
-                //////////////////////////////////////
-
-                ///////////////////////////
-                /////   HOUSE3       //////
-                ///////////////////////////
-                mvPushMatrix();
-
-                translate(1.5, 0.0, hz3);       
-                rotateX(0);
-                rotateY(15);            
-                
-                scale(0.5,0.5,0.5);
-
-                gl.bindBuffer(gl.ARRAY_BUFFER, houseVertexPositionBuffer);
-                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, houseVertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
-                gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
-                gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
-                
-                gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexTextureCoordBuffer);
-                gl.vertexAttribPointer(shader_program.textureCoord, 
-                cubeVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-                gl.activeTexture(gl.TEXTURE0);
-                gl.bindTexture(gl.TEXTURE_2D, pebbleTexture);
-                gl.uniform1i(shader_program.uSampler, 0);
-
-                if (blending) {
-                    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-                    gl.enable(gl.BLEND);
-                    gl.disable(gl.DEPTH_TEST);
-                    gl.uniform1f(shader_program.alphaUniform, 0.85);
-                } else {
-                    gl.disable(gl.BLEND);
-                    gl.enable(gl.DEPTH_TEST);
-                }
-
-                lights = vec3.normalize([xDir, yDir, zDir]);
-                vec3.scale(lights, -1);
-                gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
-                gl.uniform3f(shader_program.directionalColorUniform, 0.9, 0.6, 0.2);
-
-                if (aChecked) {
-                    gl.uniform3f(shader_program.ambientColorUniform, 
-                            0.9, 0.3, 0.3 );
-                } else {
-                    gl.uniform3f(shader_program.ambientColorUniform, 
-                            0.0, 0.0, 0.0 );
-                }
-
-                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
-                setMatrixUniforms();
-                gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
-
-                mvPopMatrix();
-
-                //////////////////////////////////////
-                
-                ///////////////////////////
-                /////   HOUSE4       //////
-                ///////////////////////////
-                mvPushMatrix();
-
-                translate(3.0, 0.0, hz4);       
-                rotateX(0);
-                rotateY(15);            
-                
-                scale(0.5,0.5,0.5);
-
-                gl.bindBuffer(gl.ARRAY_BUFFER, houseVertexPositionBuffer);
-                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, houseVertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
-                
-                gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
-                gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
-                
-                gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexTextureCoordBuffer);
-                gl.vertexAttribPointer(shader_program.textureCoord, 
-                cubeVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-                gl.activeTexture(gl.TEXTURE0);
-                gl.bindTexture(gl.TEXTURE_2D, wallTexture);
-                gl.uniform1i(shader_program.uSampler, 0);
-
-                if (blending) {
-                    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-                    gl.enable(gl.BLEND);
-                    gl.disable(gl.DEPTH_TEST);
-                    gl.uniform1f(shader_program.alphaUniform, 0.8);
-                } else {
-                    gl.disable(gl.BLEND);
-                    gl.enable(gl.DEPTH_TEST);
-                }
-
-                lights = vec3.normalize([xDir, yDir, zDir]);
-                vec3.scale(lights, -1);
-                gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
-                gl.uniform3f(shader_program.directionalColorUniform, 0.1, 0.1, 0.9);
-
-                if (aChecked) {
-                    gl.uniform3f(shader_program.ambientColorUniform, 
-                            0.1, 0.1, 0.1 );
-                } else {
-                    gl.uniform3f(shader_program.ambientColorUniform, 
-                            0.0, 0.0, 0.0 );
-                }
-
-                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
-                setMatrixUniforms();
-                gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
-
-                mvPopMatrix();
-                
-                //////////////////////////////////////
-
-                ///////////////////////////
-                /////     SPHERE 1 ////////
-                ///////////////////////////
-                
-                mvPushMatrix();
-
-                translate(0.0, 0.0, -5.0);       
-                rotateX(0);
-                rotateY(15);            
-
-                gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexPositionBuffer);
-                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, 
-                sphereVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-                gl.activeTexture(gl.TEXTURE0);
-                gl.bindTexture(gl.TEXTURE_2D, leavesTexture);
-                gl.uniform1i( shader_program.uSampler, 0);
-
-                gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexTextureCoordBuffer);
-                gl.vertexAttribPointer(shader_program.textureCoordAttribute, 
-                sphereVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-                gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexNormalBuffer);
-                gl.vertexAttribPointer(shader_program.vertexNormalAttribute, 
-                sphereVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-                /*
-
-                if (blending) {
-                    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-                    gl.enable(gl.BLEND);
-                    gl.disable(gl.DEPTH_TEST);
-                    gl.uniform1f(shader_program.alphaUniform, 0.8);
-                } else {
-                    gl.disable(gl.BLEND);
-                    gl.enable(gl.DEPTH_TEST);
-                }
-
-                lights = vec3.normalize([xDir, yDir, zDir]);
-                vec3.scale(lights, -1);
-                gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
-                gl.uniform3f(shader_program.directionalColorUniform, 0.1, 0.1, 0.9);
-
-                if (aChecked) {
-                    gl.uniform3f(shader_program.ambientColorUniform, 
-                            0.1, 0.1, 0.1 );
-                } else {
-                    gl.uniform3f(shader_program.ambientColorUniform, 
-                            0.0, 0.0, 0.0 );
-                }
-                */
-
-                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphereVertexIndexBuffer);
-                setMatrixUniforms();
-                gl.drawElements(gl.TRIANGLES, sphereVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
-
-                mvPopMatrix();
+                houseSetup();
 
                 ///////////////////////////
                 /////     STARS    ////////
@@ -1169,6 +863,468 @@
                     spin += 0.1;
                 }
 
+                function forestSetup() {
+                    ///////////////////////////
+                    /////   FOREST Back   //////
+                    ///////////////////////////
+                    mvPushMatrix();
+
+                    /*    translate(-2.0, 0.0, hz1);       
+                    rotateX(0);
+                    rotateY(40); */    
+
+                    translate(-xPos, -yPos + 2.9, -zPos - 16.0);
+                    rotateX(-pitch);
+                    if (-yaw >= -0.53 && -yaw <= 0.53) {
+                        rotateY(-yaw / 2);
+                    } else if (-yaw < -0.53) {
+                        rotateY(-0.53/2);
+                    } else {
+                        rotateY(0.53/2);
+                    }
+                    
+                    scale(10.0, 4.0, 1.0);
+
+                    gl.bindBuffer(gl.ARRAY_BUFFER, houseVertexPositionBuffer);
+                    gl.vertexAttribPointer(shader_program.vertexPositionAttribute, houseVertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
+                    
+                    gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
+                    gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+                    
+                    gl.bindBuffer(gl.ARRAY_BUFFER, forestVertexTextureCoordBuffer);
+                    gl.vertexAttribPointer(shader_program.textureCoord, 
+                    cubeVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+                    gl.activeTexture(gl.TEXTURE0);
+                    gl.bindTexture(gl.TEXTURE_2D, forestTexture);
+                    gl.uniform1i(shader_program.uSampler, 0);
+
+                    blending = false;
+                    if (blending) {
+                        gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+                        gl.enable(gl.BLEND);
+                        gl.disable(gl.DEPTH_TEST);
+                        gl.uniform1f(shader_program.alphaUniform, 0.1);
+                    } else {
+                        gl.disable(gl.BLEND);
+                        gl.enable(gl.DEPTH_TEST);
+                    }
+
+                    lights = vec3.normalize([xDir, yDir, zDir]);
+                    vec3.scale(lights, -1);
+                    gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
+                    gl.uniform3f(shader_program.directionalColorUniform, 0.15, 0.15, 0.15);
+
+                    aChecked = true;
+                    if (aChecked) {
+                        gl.uniform3f(shader_program.ambientColorUniform, 
+                                0.8274, 0.8274, 0.8274 );   // LightGrey
+                    } else {
+                        gl.uniform3f(shader_program.ambientColorUniform, 
+                                0.0, 0.0, 0.0 );
+                    }
+
+                    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
+                    setMatrixUniforms();
+                    gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+                    mvPopMatrix();
+
+                    //////////////////////////////////////
+                    var forestBounds = 0.53;
+                    ///////////////////////////
+                    /////   FOREST Left   //////
+                    ///////////////////////////
+                    mvPushMatrix();
+
+                    /*    translate(-2.0, 0.0, hz1);       
+                    rotateX(0);
+                    rotateY(40); */    
+
+                    translate(-xPos - 6.0, -yPos + 2.9, -zPos - 8.0);
+                    rotateX(-pitch);
+                    if (-yaw >= -forestBounds && -yaw <= forestBounds) {
+                        rotateY(-yaw);
+                    } else if (-yaw < -forestBounds) {
+                        rotateY(-forestBounds);
+                    } else {
+                        rotateY(forestBounds);
+                    }
+                    
+                    scale(1.0, 4.0, 8.0);
+
+                    gl.bindBuffer(gl.ARRAY_BUFFER, houseVertexPositionBuffer);
+                    gl.vertexAttribPointer(shader_program.vertexPositionAttribute, houseVertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
+                    
+                    gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
+                    gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+                    
+                    gl.bindBuffer(gl.ARRAY_BUFFER, forestVertexTextureCoordBuffer);
+                    gl.vertexAttribPointer(shader_program.textureCoord, 
+                    cubeVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+                    gl.activeTexture(gl.TEXTURE0);
+                    gl.bindTexture(gl.TEXTURE_2D, forestTexture);
+                    gl.uniform1i(shader_program.uSampler, 0);
+
+                    blending = false;
+                    if (blending) {
+                        gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+                        gl.enable(gl.BLEND);
+                        gl.disable(gl.DEPTH_TEST);
+                        gl.uniform1f(shader_program.alphaUniform, 0.1);
+                    } else {
+                        gl.disable(gl.BLEND);
+                        gl.enable(gl.DEPTH_TEST);
+                    }
+
+                    lights = vec3.normalize([xDir, yDir, zDir]);
+                    vec3.scale(lights, -1);
+                    gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
+                    gl.uniform3f(shader_program.directionalColorUniform, 0.15, 0.15, 0.15);
+
+                    aChecked = true;
+                    if (aChecked) {
+                        gl.uniform3f(shader_program.ambientColorUniform, 
+                                0.8274, 0.8274, 0.8274 );   // LightGrey
+                    } else {
+                        gl.uniform3f(shader_program.ambientColorUniform, 
+                                0.0, 0.0, 0.0 );
+                    }
+
+                    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
+                    setMatrixUniforms();
+                    gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+                    mvPopMatrix();
+
+                    //////////////////////////////////////
+                    ///////////////////////////
+                    /////   FOREST Right   //////
+                    ///////////////////////////
+                    mvPushMatrix();
+
+                    /*    translate(-2.0, 0.0, hz1);       
+                    rotateX(0);
+                    rotateY(40); */    
+
+                    translate(-xPos + 6.0, -yPos + 2.9, -zPos - 8.0);
+                    rotateX(-pitch);
+                    if (-yaw >= -forestBounds && -yaw <= forestBounds) {
+                        rotateY(-yaw);
+                    }  else if (-yaw < -forestBounds) {
+                        rotateY(-forestBounds);
+                    } else {
+                        rotateY(forestBounds);
+                    }
+                    
+                    scale(1.0, 4.0, 8.0);
+
+                    gl.bindBuffer(gl.ARRAY_BUFFER, houseVertexPositionBuffer);
+                    gl.vertexAttribPointer(shader_program.vertexPositionAttribute, houseVertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
+                    
+                    gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
+                    gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+                    
+                    gl.bindBuffer(gl.ARRAY_BUFFER, forestVertexTextureCoordBuffer);
+                    gl.vertexAttribPointer(shader_program.textureCoord, 
+                    cubeVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+                    gl.activeTexture(gl.TEXTURE0);
+                    gl.bindTexture(gl.TEXTURE_2D, forestTexture);
+                    gl.uniform1i(shader_program.uSampler, 0);
+
+                    blending = false;
+                    if (blending) {
+                        gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+                        gl.enable(gl.BLEND);
+                        gl.disable(gl.DEPTH_TEST);
+                        gl.uniform1f(shader_program.alphaUniform, 0.1);
+                    } else {
+                        gl.disable(gl.BLEND);
+                        gl.enable(gl.DEPTH_TEST);
+                    }
+
+                    lights = vec3.normalize([xDir, yDir, zDir]);
+                    vec3.scale(lights, -1);
+                    gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
+                    gl.uniform3f(shader_program.directionalColorUniform, 0.15, 0.15, 0.15);
+
+                    aChecked = true;
+                    if (aChecked) {
+                        gl.uniform3f(shader_program.ambientColorUniform, 
+                                0.8274, 0.8274, 0.8274 );   // LightGrey
+                    } else {
+                        gl.uniform3f(shader_program.ambientColorUniform, 
+                                0.0, 0.0, 0.0 );
+                    }
+
+                    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
+                    setMatrixUniforms();
+                    gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+                    mvPopMatrix();
+
+                    //////////////////////////////////////
+
+                    ///////////////////////////
+                    /////     FLOOR    ////////
+                    ///////////////////////////
+                    mvPushMatrix();
+
+                    translate(-xPos, -yPos - 0.5, -zPos - 8.0);
+                    rotateX(-pitch);
+                    if (-yaw >= -forestBounds && -yaw <= forestBounds) {
+                        rotateY(-yaw);
+                    }  else if (-yaw < -forestBounds) {
+                        rotateY(-forestBounds);
+                    } else {
+                        rotateY(forestBounds);
+                    }
+                    
+                    scale(6.0,0.1,8.0);
+
+                    gl.bindBuffer(gl.ARRAY_BUFFER, houseVertexPositionBuffer);
+                    gl.vertexAttribPointer(shader_program.vertexPositionAttribute, houseVertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
+                    
+                    gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
+                    gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+                    
+                    gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexTextureCoordBuffer);
+                    gl.vertexAttribPointer(shader_program.textureCoord, 
+                    cubeVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+                    gl.activeTexture(gl.TEXTURE0);
+                    gl.bindTexture(gl.TEXTURE_2D, grassTexture);
+                    gl.uniform1i(shader_program.uSampler, 0);
+
+                    blending = false;
+                    if (blending) {
+                        gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+                        gl.enable(gl.BLEND);
+                        gl.disable(gl.DEPTH_TEST);
+                        gl.uniform1f(shader_program.alphaUniform, 1.0);
+                    } else {
+                        gl.disable(gl.BLEND);
+                        gl.enable(gl.DEPTH_TEST);
+                    }
+
+                    lights = vec3.normalize([xDir, yDir, zDir]);
+                    vec3.scale(lights, -1);
+                    gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
+                    gl.uniform3f(shader_program.directionalColorUniform, 0.1, 0.1, 0.1);
+
+                    aChecked = true;
+                    if (aChecked) {
+                        gl.uniform3f(shader_program.ambientColorUniform, 
+                                0.1, 0.1, 0.1 );
+                    } else {
+                        gl.uniform3f(shader_program.ambientColorUniform, 
+                                0.0, 0.0, 0.0 );
+                    }
+
+                    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
+                    setMatrixUniforms();
+                    gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+                    mvPopMatrix();
+
+                    //////////////////////////////////////
+                }
+
+                function houseSetup() {
+
+                    ///////////////////////////
+                    ///////   Log   ///////////
+                    ///////////////////////////
+                    mvPushMatrix();
+
+                    useBumpMapping = true;
+                    /*    translate(-2.0, 0.0, hz1);       
+                    rotateX(0);
+                    rotateY(40); */    
+
+                    translate(-xPos + 3.0, -yPos + 1.0, -zPos - 6.0);
+                    rotateX(-pitch);
+                    rotateY(-yaw);
+                    shearX(30);
+
+                    scale(0.4, 2.0, 0.4);
+
+                    gl.bindBuffer(gl.ARRAY_BUFFER, houseVertexPositionBuffer);
+                    gl.vertexAttribPointer(shader_program.vertexPositionAttribute, houseVertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
+                        
+                    gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
+                    gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+                        
+                    lights = vec3.normalize([xDir, yDir, zDir]);
+                    vec3.scale(lights, -1);
+                    gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
+                    gl.uniform3f(shader_program.directionalColorUniform, 0.5, 0.5, 1.0);
+                    gl.uniform3f(shader_program.specularColorUniform, 0.8, 0.8, 0.8);
+
+                    aChecked = true;
+                    if (aChecked) {
+                        gl.uniform3f(shader_program.ambientColorUniform, 
+                                0.8274, 0.8274, 0.8274 );   // LightGrey
+                    } else {
+                        gl.uniform3f(shader_program.ambientColorUniform, 
+                                0.0, 0.0, 0.0 );
+                    }
+
+                    gl.bindBuffer(gl.ARRAY_BUFFER, forestVertexTextureCoordBuffer);
+                    gl.vertexAttribPointer(shader_program.textureCoord, 
+                    cubeVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+                    gl.activeTexture(gl.TEXTURE0);
+                    gl.bindTexture(gl.TEXTURE_2D, treeNormTex);
+                    gl.uniform1i(shader_program.uNormalTex, 0);
+
+                    gl.bindBuffer(gl.ARRAY_BUFFER, forestVertexTextureCoordBuffer);
+                    gl.vertexAttribPointer(shader_program.textureCoord, 
+                    cubeVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+                    gl.activeTexture(gl.TEXTURE0);
+                    gl.bindTexture(gl.TEXTURE_2D, treeTexture);
+                    gl.uniform1i(shader_program.uSampler, 0);
+
+                    blending = false;
+                    if (blending) {
+                        gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+                        gl.enable(gl.BLEND);
+                        gl.disable(gl.DEPTH_TEST);
+                        gl.uniform1f(shader_program.alphaUniform, 0.1);
+                    } else {
+                        gl.disable(gl.BLEND);
+                        gl.enable(gl.DEPTH_TEST);
+                    }
+
+                    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
+                    setMatrixUniforms();
+                    gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+                    mvPopMatrix();    
+  
+                    
+                    ///////////////////////////
+                    /////     HOUSE FLOOR  ////
+                    ///////////////////////////
+                    mvPushMatrix();
+
+                    useBumpMapping = false;
+
+                    translate(-xPos - 1.0, -yPos - 0.49, -zPos - 8.0);
+                    rotateX(-pitch);
+                    rotateY(-yaw);
+                    
+                    scale(3.1,0.1,3.6);
+
+                    gl.bindBuffer(gl.ARRAY_BUFFER, houseVertexPositionBuffer);
+                    gl.vertexAttribPointer(shader_program.vertexPositionAttribute, houseVertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
+                    
+                    gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
+                    gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+                    
+                    gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexTextureCoordBuffer);
+                    gl.vertexAttribPointer(shader_program.textureCoord, 
+                    cubeVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+                    gl.activeTexture(gl.TEXTURE0);
+                    gl.bindTexture(gl.TEXTURE_2D, sandTexture);
+                    gl.uniform1i(shader_program.uSampler, 0);
+
+                    blending = false;
+                    if (blending) {
+                        gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+                        gl.enable(gl.BLEND);
+                        gl.disable(gl.DEPTH_TEST);
+                        gl.uniform1f(shader_program.alphaUniform, 1.0);
+                    } else {
+                        gl.disable(gl.BLEND);
+                        gl.enable(gl.DEPTH_TEST);
+                    }
+
+                    lights = vec3.normalize([xDir, yDir, zDir]);
+                    vec3.scale(lights, -1);
+                    gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
+                    gl.uniform3f(shader_program.directionalColorUniform, 0.1, 0.1, 0.1);
+
+                    aChecked = true;
+                    if (aChecked) {
+                        gl.uniform3f(shader_program.ambientColorUniform, 
+                                0.1, 0.1, 0.1 );
+                    } else {
+                        gl.uniform3f(shader_program.ambientColorUniform, 
+                                0.0, 0.0, 0.0 );
+                    }
+
+                    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
+                    setMatrixUniforms();
+                    gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+                    mvPopMatrix();
+
+                    //////////////////////////////////////
+                    ///////////////////////////
+                    /////     Back Wall  //////
+                    ///////////////////////////
+                    mvPushMatrix();
+
+                    useBumpMapping = false;
+
+                    translate(-xPos - 0.8, -yPos + 1.0, -zPos - 11.0);
+                    rotateX(-pitch);
+                    rotateY(-yaw);
+                    
+                    scale(2.9,1.5,0.1);
+
+                    gl.bindBuffer(gl.ARRAY_BUFFER, houseVertexPositionBuffer);
+                    gl.vertexAttribPointer(shader_program.vertexPositionAttribute, houseVertexPositionBuffer.itemSize, gl.FLOAT, false,0,0);
+                    
+                    gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
+                    gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+                    
+                    gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexTextureCoordBuffer);
+                    gl.vertexAttribPointer(shader_program.textureCoord, 
+                    cubeVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+                    gl.activeTexture(gl.TEXTURE0);
+                    gl.bindTexture(gl.TEXTURE_2D, biscTexture);
+                    gl.uniform1i(shader_program.uSampler, 0);
+
+                    blending = false;
+                    if (blending) {
+                        gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+                        gl.enable(gl.BLEND);
+                        gl.disable(gl.DEPTH_TEST);
+                        gl.uniform1f(shader_program.alphaUniform, 1.0);
+                    } else {
+                        gl.disable(gl.BLEND);
+                        gl.enable(gl.DEPTH_TEST);
+                    }
+
+                    lights = vec3.normalize([xDir, yDir, zDir]);
+                    vec3.scale(lights, -1);
+                    gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
+                    gl.uniform3f(shader_program.directionalColorUniform, 0.2, 0.2, 0.1);
+
+                    aChecked = true;
+                    if (aChecked) {
+                        gl.uniform3f(shader_program.ambientColorUniform, 
+                                0.8, 0.8, 0.8 );
+                    } else {
+                        gl.uniform3f(shader_program.ambientColorUniform, 
+                                0.0, 0.0, 0.0 );
+                    }
+
+                    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
+                    setMatrixUniforms();
+                    gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+                    mvPopMatrix();
+
+                    //////////////////////////////////////
+                }
             }
 
         </script>
@@ -1351,21 +1507,34 @@
                 gl.drawArrays(gl.TRIANGLE_STRIP, 0, starVertexPositionBuffer.numItems );
             }
         </script>
-        <script>
+        <script>    // tick and animate
             function tick(){
                 requestAnimFrame(tick);
+                handleKeys();
                 drawScene();
                 animate();
             }
 
             var lastTime = 0;
+            var joggingAngle = 0;
             function animate(){
                 var timeNow = new Date().getTime();
                 if (lastTime != 0){
                     var elapsed = timeNow - lastTime;
 
-                  //  rPyramid += (90 * elapsed)/1000.0;
-                   // rCube -= (75 * elapsed)/1000.0;
+                    if (speed != 0) {
+                        xPos -= Math.sin(degToRoad(yaw)) * speed * elapsed;
+                        if (zPos <= 1.26) {
+                            zPos -= Math.cos(degToRoad(yaw)) * speed * elapsed;
+                        }
+
+                        joggingAngle += elapsed * 0.5;
+                        yPos = Math.sin(degToRoad(joggingAngle))/ 20 + 0.4;
+                    }
+
+                    yaw += yawRate * elapsed;
+                    pitch += pitchRate * elapsed;
+                  
                    for (var i in stars) {
                        stars[i].animate(elapsed);
                    }
@@ -1373,48 +1542,83 @@
                 lastTime = timeNow;
             }
         </script>
-        <script>
-            function handleKeyPress(event){
-                if (event.keyCode == 79) {
-                    console.log("O pressed");
-                    oPress = document.getElementById("obliqueProj").checked;
-                    if (oPress == true) {
-                        document.getElementById("obliqueProj").checked = false;
-                    } else {
-                        document.getElementById("obliqueProj").checked = true;
-                    }
-                    console.log(oPress);
+        <script>    // handleKeyPress
+            var currentlyPressedKeys = {};
+            var pitch = 0;
+            var pitchRate = 0.0;
+            var yaw = 0;
+            var yawRate = 0;
+
+            var xPos = 0;
+            var yPos = 0.4;
+            var zPos = 0;
+            var speed = 0;
+
+            var xDirec = -4.3;
+            var yDirec = 4.0;
+            var zDirec = 1.5;
+
+            function handleKeyDown(event) {
+                currentlyPressedKeys[event.keyCode] = true;
+            }
+
+            function handleKeyUp(event) {
+                currentlyPressedKeys[event.keyCode] = false;
+            }
+
+            function handleKeys() {
+                if (currentlyPressedKeys[33]) {
+                    pitchRate = 0.001;
+                } else if (currentlyPressedKeys[34]) {
+                    pitchRate = -0.001;
+                } else {
+                    pitchRate = 0;
                 }
 
-                if (event.keyCode == 82) {
-                    //Orthogonal
-                    projection = 1;
-                    document.getElementById("currentProj").innerText = "Orthogonal";
-                    console.log(projection);
+                if (currentlyPressedKeys[37]) {         // Left
+                    yawRate = 0.001;
+                } else if (currentlyPressedKeys[39]) {  // Right
+                    yawRate = -0.001;
+                } else {
+                    yawRate = 0;
                 }
 
-                if (event.keyCode == 80) {
-                    //Perspective
-                    projection = 0;
-                    document.getElementById("currentProj").innerText = "Perspective";
-                    console.log(projection);
+                if (currentlyPressedKeys[38]) {         // Forward (up)
+                    speed = 0.003;
+                } else if (currentlyPressedKeys[40]) {  // Backward (down)
+                    speed = -0.003;;
+                } else {
+                    speed = 0;
                 }
 
-                if (event.keyCode == 65) {
-                    //Ambient
-                    aPress = document.getElementById("ambLight").checked;
-                    if (aPress == true) {
-                        document.getElementById("ambLight").checked = false;
-                    } else {
-                        document.getElementById("ambLight").checked = true;
-                    }
-                    console.log(aPress);
+                if (currentlyPressedKeys[65]) {         // A
+                    xDirec -= 0.05;
+                } else if (currentlyPressedKeys[68]) {  // Backward (down)
+                    xDirec += 0.05;
+                } else {
+                    xDirec += 0;
+                }
+
+                if (currentlyPressedKeys[87]) {         // A
+                    yDirec += 0.05;
+                } else if (currentlyPressedKeys[83]) {  // Backward (down)
+                    yDirec -= 0.05;
+                } else {
+                    yDirec += 0;
+                }
+
+                if (currentlyPressedKeys[82]) {         // A
+                    zDirec += 0.05;
+                } else if (currentlyPressedKeys[70]) {  // Backward (down)
+                    zDirec -= 0.05;
+                } else {
+                    zDirec += 0;
                 }
             }
 
             var projection = 0;
         </script>
-        <script>
+        <script>    // Projection Functions
             function createOrthographic(left, right, bottom, top, near, far) {
                 mid_x = (left + right)/2;
                 mid_y = (bottom + top)/2;
@@ -1498,60 +1702,19 @@
                 initShaders();
                 initBuffers();
                 initTextures();
-                initWorldObjects();
+                // initWorldObjects();
 
-                gl.clearColor(0.0,0.0,0.0,1.0);
+                gl.clearColor(0.1,0.4,0.7,1.0);
                 // gl.enable(gl.DEPTH_TEST);
 
-                document.onkeypress = handleKeyPress;
+                document.onkeydown = handleKeyDown;
+                document.onkeyup = handleKeyUp;
 
                 tick();
             }
         </script>
     </head>
     <body onload="webGLStart();">
-        <canvas id="webgl-intro" width="800" height="600"></canvas>
-        <div style="float: right; background: lightskyblue; padding: 10px;">
-            <h1>Controls</h1>
-            <div style="background: darkgray;padding:5px;">
-                <h2>House Z Values</h2>
-                House 1:
-                <input type="range" min="-20.0" max="0.0" class="slider" id="house1Z" value="-6.0">
-                House 2:
-                <input type="range" min="-20.0" max="0.0" class="slider" id="house2Z" value="-10.0">
-                <br>House 3:
-                <input type="range" min="-20.0" max="0.0" class="slider" id="house3Z" value="-14.0">
-                House 4:
-                <input type="range" min="-20.0" max="0.0" class="slider" id="house4Z" value="-8.0">
-            </div>
-            <br>
-            <div style="background: darkgray;padding:5px;">
-                <h2>Oblique Projection Angles</h2>
-                Use Oblique Projection: 
-                <input type="checkbox" id="obliqueProj" value="false"><span>    Press O to Toggle  </span><br>
-                Theta
-                <input type="range" min="-180" max="180" class="slider" id="theta" value="30">
-                Phi
-                <input type="range" min="-180" max="180" class="slider" id="phi" value="30">
-            </div>
-            <br>
-            <div style="background: darkgray;padding:5px;">
-                <h2>Projection: <span id="currentProj">Perspective</span></h2>
-                <h3>Press R for Orthogonal Projection</h3>
-                <h3>Press P for Perspective Projection</h3>
-            </div>
-            <br>
-            <div style="background: darkgray; padding:5px;">
-                <h2>Lighting</h2>
-                Point Source Light X Direction:
-                <input type="range" min="-8.0" max="8.0" class="slider" id="xDir" value="6.0"><br>
-                Point Source Light Y Direction:
-                <input type="range" min="-8.0" max="8.0" class="slider" id="yDir" value="1.0"><br>
-                Point Source Light Z Direction:
-                <input type="range" min="0.0" max="15.0" class="slider" id="zDir" value="5.0"><br>
-                Use Ambient Light: 
-                <input type="checkbox" id="ambLight" value="false"><span>    Press A to Toggle  </span><br>
-            </div>
-        </div>
+        <canvas id="webgl-intro" width="1200" height="700"></canvas>
     </body>
 </html>

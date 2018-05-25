@@ -371,8 +371,8 @@
                 sphereVertexPositionBuffer.numItems = vertexPositionData.length / 3;
 
                 sphereVertexIndexBuffer = gl.createBuffer();
-                gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexIndexBuffer);
-                gl.bufferData(gl.ARRAY_BUFFER, new Uint16Array(indexData), gl.STATIC_DRAW);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphereVertexIndexBuffer);
+                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indexData), gl.STATIC_DRAW);
                 sphereVertexIndexBuffer.itemSize = 1;
                 sphereVertexIndexBuffer.numItems = indexData.length;
 
