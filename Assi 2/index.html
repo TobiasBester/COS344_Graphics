@@ -22,38 +22,55 @@
             }
         </script>
         <script id="shader-vs" type="x-shader/x-vertex">
+            // #extension GL_OES_standard_derivatives : enable
             attribute vec3 vertexPosition;
             attribute vec3 aVertexNormal;
+            attribute vec2 aTextureCoord;
 
             uniform mat4 uMVMatrix;
             uniform mat4 uPMatrix;
             uniform mat3 uNMatrix;
 
-            uniform vec3 uAmbientColor;
+            // uniform sampler2D uCarveTexture;
 
-            varying vec3 v_normal;
+            uniform vec3 uAmbientColor;
+            uniform vec3 uLightingDirection;
+            uniform vec3 uDirectionalColor;
+
+            varying vec3 vLightWeighting;
+            varying highp vec2 vTextureCoord;
 
             void main(void) {
                 gl_Position = uPMatrix * uMVMatrix * vec4(vertexPosition, 1.0);
-                v_normal = aVertexNormal;
+                vTextureCoord = aTextureCoord;
+                vec3 transformedNormal = uNMatrix * aVertexNormal;
+                float directionalLightWeighting = max(dot(transformedNormal, uLightingDirection), 0.0);
+                vLightWeighting = uAmbientColor + uDirectionalColor * directionalLightWeighting;
             }
         </script>
         <script id="shader-fs" type="x-shader/x-fragment">
+            // #extension GL_OES_standard_derivatives : enable
             precision mediump float;
 
             varying vec3 vLightWeighting;
+            varying vec2 vTextureCoord;
+
             uniform sampler2D uSampler;
 
-            varying vec3 v_normal;
-            uniform vec3 u_reverseLD;
-            uniform vec4 u_color;
-            uniform vec3 u_ambient;
+            uniform float uAlpha;
+            uniform bool alphaOn;
 
             void main(void){
-                vec3 normal =  normalize(v_normal);
-                float light = dot(normal, u_reverseLD);
-                gl_FragColor = u_color;
-                gl_FragColor.rgb *= light + u_ambient;
+                vec4 textureColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+
+                // gl_FragColor = textureColor;
+                if (alphaOn) {
+                    gl_FragColor = vec4(textureColor.rgb * vLightWeighting, textureColor.a * uAlpha);
+                } else {
+                    gl_FragColor = vec4(textureColor.rgb * vLightWeighting, 1.0);
+                }
+                
+
             }
         </script>
         <script type="text/javascript">
@@ -94,7 +111,6 @@
         </script>
         <script>
             var shader_program;
-
             function initShaders(){
                 var fragmentShader = getShader(gl, "shader-fs");
                 var vertexShader = getShader(gl, "shader-vs");
@@ -114,13 +130,120 @@
                 gl.enableVertexAttribArray(shader_program.vertexPositionAttribute);
                 shader_program.vertexNormalAttribute = gl.getAttribLocation(shader_program,"aVertexNormal");
                 gl.enableVertexAttribArray(shader_program.vertexNormalAttribute);
+                shader_program.textureCoord = gl.getAttribLocation(shader_program,"aTextureCoord");
+                gl.enableVertexAttribArray(shader_program.textureCoord);
 
                 shader_program.pMatrixLocation = gl.getUniformLocation(shader_program,"uPMatrix");
                 shader_program.mvMatrixLocation = gl.getUniformLocation(shader_program, "uMVMatrix");
                 shader_program.nMatrixUniform = gl.getUniformLocation(shader_program, "uNMatrix");
-                shader_program.ambientColorUniform = gl.getUniformLocation(shader_program, "u_ambient");
-                shader_program.lightingDirectionUniform = gl.getUniformLocation(shader_program, "u_reverseLD");
-                shader_program.colorLocation = gl.getUniformLocation(shader_program, "u_color");
+                shader_program.ambientColorUniform = gl.getUniformLocation(shader_program, "uAmbientColor");
+                shader_program.lightingDirectionUniform = gl.getUniformLocation(shader_program, "uLightingDirection");
+                shader_program.directionalColorUniform = gl.getUniformLocation(shader_program, "uDirectionalColor");
+                shader_program.uSampler = gl.getUniformLocation(shader_program, 'uSampler');
+                shader_program.alphaUniform = gl.getUniformLocation(shader_program, "uAlpha");
+                shader_program.useAlpha = gl.getUniformLocation(shader_program, "alphaOn");
+            }
+        </script>
+        <script>
+            var wallTexture;
+            var leavesTexture;
+            var pebbleTexture;
+            var starTexture;
+            function initTextures() {
+                wallTexture = gl.createTexture();
+                leavesTexture = gl.createTexture();
+                pebbleTexture = gl.createTexture();
+                starTexture = gl.createTexture();
+                gl.bindTexture(gl.TEXTURE_2D, wallTexture);
+                gl.bindTexture(gl.TEXTURE_2D, leavesTexture);
+                gl.bindTexture(gl.TEXTURE_2D, pebbleTexture);
+                gl.bindTexture(gl.TEXTURE_2D, starTexture);
+
+                const level = 0;
+                const internalFormat = gl.RGBA;
+                const width = 1;
+                const height = 1;
+                const border = 0;
+                const srcFormat = gl.RGBA;
+                const srcType = gl.UNSIGNED_BYTE;
+                const pixel = new Uint8Array([0, 0, 255, 255]);
+                gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, width,
+                                height, border, srcFormat, srcType, pixel);
+
+                wallTexture.image = new Image();
+                leavesTexture.image = new Image();
+                pebbleTexture.image = new Image();
+                starTexture.image = new Image();
+
+                wallTexture.image.onload = function () {
+                    gl.bindTexture(gl.TEXTURE_2D, wallTexture);
+                    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, srcFormat, srcType, wallTexture.image);
+
+                    if (isPowerOf2(wallTexture.image.width) && isPowerOf2(wallTexture.image.height)) {
+                        gl.generateMipmap(gl.TEXTURE_2D);
+                    } else {
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                        gl.bindTexture(gl.TEXTURE_2D, null);
+                    }
+
+                };
+
+                leavesTexture.image.onload = function () {
+                    gl.bindTexture(gl.TEXTURE_2D, leavesTexture);
+                    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, srcFormat, srcType, leavesTexture.image);
+
+                    if (isPowerOf2(leavesTexture.image.width) && isPowerOf2(leavesTexture.image.height)) {
+                        gl.generateMipmap(gl.TEXTURE_2D);
+                    } else {
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                        gl.bindTexture(gl.TEXTURE_2D, null);
+                    }
+                };
+
+                pebbleTexture.image.onload = function () {
+                    gl.bindTexture(gl.TEXTURE_2D, pebbleTexture);
+                    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, srcFormat, srcType, pebbleTexture.image);
+
+                    if (isPowerOf2(pebbleTexture.image.width) && isPowerOf2(pebbleTexture.image.height)) {
+                        gl.generateMipmap(gl.TEXTURE_2D);
+                    } else {
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                        gl.bindTexture(gl.TEXTURE_2D, null);
+                    }
+                };
+
+                starTexture.image.onload = function () {
+                    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+                    gl.bindTexture(gl.TEXTURE_2D, starTexture);
+                    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat, srcFormat, srcType, starTexture.image);
+
+                    if (isPowerOf2(starTexture.image.width) && isPowerOf2(starTexture.image.height)) {
+                        gl.generateMipmap(gl.TEXTURE_2D);
+                    } else {
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                        gl.bindTexture(gl.TEXTURE_2D, null);
+                    }
+                };
+
+                wallTexture.image.src = "./assets/plaster-002_b030-g100.jpg";
+                leavesTexture.image.src = "./assets/leaves.png";
+                pebbleTexture.image.src = "./assets/gravel-033_01_pebbles2_2m_d.jpg";
+                starTexture.image.src = "./assets/star.gif";
+                // return wallTexture;                       
+            }
+
+            function isPowerOf2(value) {
+                return (value & (value - 1)) == 0;
             }
         </script>
         <script>
@@ -156,8 +279,22 @@
             }
 
             var roofVertexPositionBuffer;
+            var roofVertexIndexBuffer;
+            var pyrVertexTextureCoordBuffer;
+            var roofVertexNormalBuffer;
+
             var houseVertexPositionBuffer;
             var cubeVertexIndexBuffer;
+            var cubeVertexNormalBuffer;
+            var cubeVertexTextureCoordBuffer;
+
+            var sphereVertexPositionBuffer;
+            var sphereVertexNormalBuffer;
+            var sphereVertexTextureCoordBuffer;
+            var sphereVertexIndexBuffer;
+
+            var starVertexPositionBuffer;
+            var starVertexTextureCoordBuffer;
 
             function initBuffers() {
                 roofVertexPositionBuffer = gl.createBuffer();
@@ -184,6 +321,34 @@
                 roofVertexPositionBuffer.itemSize = 3;
                 roofVertexPositionBuffer.numItems = 12;
 
+                pyrVertexTextureCoordBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, pyrVertexTextureCoordBuffer);
+                var textureCoords = [
+                    // Front Face
+                     0.0,  0.5,       // Top point
+                     0.0,  0.0,       // BottomLeft point
+                     1.0,  0.0,       // BottomRight point
+
+                    // Right Face
+                     0.0,  0.5,       // Top point
+                     0.0,  0.0,       // BottomLeft point
+                     1.0,  0.0,       // BottomRight point
+
+                     // Back Face
+                     0.0,  0.5,       // Top point
+                     0.0,  0.0,       // BottomLeft point
+                     1.0,  0.0,       // BottomRight point
+
+                     // Left Face
+                     0.0,  0.5,       // Top point
+                     0.0,  0.0,       // BottomLeft point
+                     1.0,  0.0,       // BottomRight point
+
+                ];
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoords), gl.STATIC_DRAW);
+                pyrVertexTextureCoordBuffer.itemSize = 2;
+                pyrVertexTextureCoordBuffer.numItems = 12;
+
                 roofVertexNormalBuffer = gl.createBuffer();
                 gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexNormalBuffer);
                 var vertexRNormals = [
@@ -207,6 +372,19 @@
                 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexRNormals), gl.STATIC_DRAW);
                 roofVertexNormalBuffer.itemSize = 3;
                 roofVertexNormalBuffer.numItems = 12;
+
+                /*
+                roofVertexIndexBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexIndexBuffer);
+                var indices = [
+                    0, 3, 1,
+                    1, 3, 2,
+                    2, 3, 0,
+                    0, 1, 2
+                ];
+                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+                roofVertexIndexBuffer.itemSize = 1;
+                roofVertexIndexBuffer.numItems = 12;*/
 
                 houseVertexPositionBuffer = gl.createBuffer();
                 gl.bindBuffer(gl.ARRAY_BUFFER,houseVertexPositionBuffer);
@@ -309,6 +487,150 @@
                 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexNormals), gl.STATIC_DRAW);
                 cubeVertexNormalBuffer.itemSize = 3;
                 cubeVertexNormalBuffer.numItems = 24;
+
+                cubeVertexTextureCoordBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexTextureCoordBuffer);
+                // These texture coords specify where in Cartesian (x,y) coords the vertex lies in the texture
+                var textureCoords = [
+                    // Front face - bottomleft image
+                    0.0, 0.0,       // bottom left
+                    1.0, 0.0,      // bottom right
+                    1.0, 1.0,      // top right
+                    0.0, 1.0,       // top left
+                    
+                    // Back Face - bottommright image
+                    0.0, 0.0,
+                    1.0, 0.0,
+                    1.0, 1.0,
+                    0.0, 1.0,
+
+                    // Top Face - bottommiddle image
+                    0.0, 0.0,
+                    1.0, 0.0,
+                    1.0, 1.0,
+                    0.0, 1.0,
+
+                    // Bottom Face - topleft image
+                    0.0, 0.0,
+                    1.0, 0.0,
+                    1.0, 1.0,
+                    0.0, 1.0,
+
+                    // Right Face - topmiddle image
+                    0.0, 0.0,
+                    1.0, 0.0,
+                    1.0, 1.0,
+                    0.0, 1.0,
+
+                    // Left Face  - topright image
+                    0.0, 0.0,
+                    1.0, 0.0,
+                    1.0, 1.0,
+                    0.0, 1.0,
+
+                ];
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoords), gl.STATIC_DRAW);
+                cubeVertexTextureCoordBuffer.itemSize = 2;
+                cubeVertexTextureCoordBuffer.numItems = 24;
+
+                // SPHERE
+                var latitudeBands = 30;
+                var longitudeBands = 30;
+                var radius = 2;
+
+                var vertexPositionData = [];
+                var normalData = [];
+                var textureCoordData = [];
+                for (var latNumber=0; latNumber <= latitudeBands; latNumber++) {
+                    var theta = latNumber * Math.PI/ latitudeBands;
+                    var sinTheta = Math.sin(theta);
+                    var cosTheta = Math.cos(theta);
+
+                    for (var longNumber = 0; longNumber <= longitudeBands; longNumber++) {
+                        var phi = longNumber * 2 * Math.PI / longitudeBands;
+                        var sinPhi = Math.sin(phi);
+                        var cosPhi = Math.cos(phi);
+
+                        var x = cosPhi * sinTheta;
+                        var y = cosTheta;
+                        var z = sinPhi * sinTheta;
+                        var u = 1 - (longNumber/longitudeBands);
+                        var v = 1 - (latNumber/latitudeBands);
+
+                        normalData.push(x);
+                        normalData.push(y);
+                        normalData.push(z);
+                        textureCoordData.push(u);
+                        textureCoordData.push(v);
+                        vertexPositionData.push(radius * x);
+                        vertexPositionData.push(radius * y);
+                        vertexPositionData.push(radius * z);
+                    }
+                }
+
+                var indexData = [];
+                for (var latNumber=0; latNumber <= latitudeBands; latNumber++) {
+                    for (var longNumber = 0; longNumber <= longitudeBands; longNumber++) {
+                        var first = (latNumber * (longitudeBands + 1)) + longNumber;
+                        var second = first + longitudeBands + 1;
+                        indexData.push(first);
+                        indexData.push(second);
+                        indexData.push(first + 1);
+
+                        indexData.push(second);
+                        indexData.push(second + 1);
+                        indexData.push(first + 1);
+                    }
+                }
+
+                sphereVertexNormalBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexNormalBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normalData), gl.STATIC_DRAW);
+                sphereVertexNormalBuffer.itemSize = 3;
+                sphereVertexNormalBuffer.numItems = normalData.length / 3;
+
+                sphereVertexTextureCoordBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexTextureCoordBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoordData), gl.STATIC_DRAW);
+                sphereVertexTextureCoordBuffer.itemSize = 2;
+                sphereVertexTextureCoordBuffer.numItems = textureCoordData.length / 2;
+
+                sphereVertexPositionBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexPositionBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexPositionData), gl.STATIC_DRAW);
+                sphereVertexPositionBuffer.itemSize = 3;
+                sphereVertexPositionBuffer.numItems = vertexPositionData.length / 3;
+
+                sphereVertexIndexBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphereVertexIndexBuffer);
+                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indexData), gl.STATIC_DRAW);
+                sphereVertexIndexBuffer.itemSize = 1;
+                sphereVertexIndexBuffer.numItems = indexData.length; 
+
+                starVertexPositionBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, starVertexPositionBuffer);
+                vertices = [
+                    -1.0, -1.0, 0.0,
+                     1.0, -1.0, 0.0,
+                    -1.0,  1.0, 0.0,
+                     1.0,  1.0, 0.0
+                ];
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+                starVertexPositionBuffer.itemSize = 3;
+                starVertexPositionBuffer.numItems = 4;
+
+                starVertexTextureCoordBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, starVertexTextureCoordBuffer);
+                textureCoords = [
+                    0.0, 0.0,
+                    1.0, 0.0,
+                    0.0, 1.0,
+                    1.0, 1.0
+                ];
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoords), gl.STATIC_DRAW);
+                starVertexTextureCoordBuffer.itemSize = 2;
+                starVertexTextureCoordBuffer.numItems = 4;
+
             }
 
             var rRoof1 = 0;       //used to track rotation
@@ -374,14 +696,16 @@
                 document.getElementById("yDir").step = "0.5";
                 document.getElementById("zDir").step = "1.0";
 
+                var blending = false;
+                gl.uniform1i(shader_program.useAlpha, blending);
                 ///////////////////////////
                 /////     ROOF 1   ////////
                 ///////////////////////////
-
+                
                 mvPushMatrix();
                 
                 translate(-2.0, 1.0, hz1);
-                rotateY(10);
+                rotateY(40);
                 rotateX(0);
                 scale(0.5,0.5,0.5);
 
@@ -390,9 +714,29 @@
                 gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexNormalBuffer);
                 gl.vertexAttribPointer(shader_program.vertexNormalAttribute, roofVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
+                gl.bindBuffer(gl.ARRAY_BUFFER, pyrVertexTextureCoordBuffer);
+                gl.vertexAttribPointer(shader_program.textureCoord, 
+                pyrVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);    
+                
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, wallTexture);
+                gl.uniform1i(shader_program.uSampler, 0);
+
+                if (blending) {
+                    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+                    gl.enable(gl.BLEND);
+                    gl.disable(gl.DEPTH_TEST);
+                    gl.uniform1f(shader_program.alphaUniform, 0.6);
+                } else {
+                    gl.disable(gl.BLEND);
+                    gl.enable(gl.DEPTH_TEST);
+                }
+                
+
                 lights = vec3.normalize([xDir, yDir, zDir]);
+                vec3.scale(lights, -1);
                 gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
-                gl.uniform4fv(shader_program.colorLocation, [0.6, 0.6, 0.2, 1]);
+                gl.uniform3f(shader_program.directionalColorUniform, 1.0, 0.1, 0.1);
                 
                 setMatrixUniforms();
                 gl.drawArrays(gl.TRIANGLES, 0, roofVertexPositionBuffer.numItems);
@@ -416,9 +760,28 @@
                 gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexNormalBuffer);
                 gl.vertexAttribPointer(shader_program.vertexNormalAttribute, roofVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
                 
+                gl.bindBuffer(gl.ARRAY_BUFFER, pyrVertexTextureCoordBuffer);
+                gl.vertexAttribPointer(shader_program.textureCoord, 
+                pyrVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);    
+                
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, wallTexture);
+                gl.uniform1i(shader_program.uSampler, 0);
+
+                if (blending) {
+                    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+                    gl.enable(gl.BLEND);
+                    gl.disable(gl.DEPTH_TEST);
+                    gl.uniform1f(shader_program.alphaUniform, 0.8);
+                } else {
+                    gl.disable(gl.BLEND);
+                    gl.enable(gl.DEPTH_TEST);
+                }
+
                 lights = vec3.normalize([xDir, yDir, zDir]);
+                vec3.scale(lights, -1);
                 gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
-                gl.uniform4fv(shader_program.colorLocation, [0.1, 0.6, 0.4, 1]);
+                gl.uniform3f(shader_program.directionalColorUniform, 0.1, 0.9, 0.6);
                 
                 setMatrixUniforms();
                 gl.drawArrays(gl.TRIANGLES, 0, roofVertexPositionBuffer.numItems);
@@ -442,9 +805,28 @@
                 gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexNormalBuffer);
                 gl.vertexAttribPointer(shader_program.vertexNormalAttribute, roofVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
                 
+                gl.bindBuffer(gl.ARRAY_BUFFER, pyrVertexTextureCoordBuffer);
+                gl.vertexAttribPointer(shader_program.textureCoord, 
+                pyrVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);    
+                
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, pebbleTexture);
+                gl.uniform1i(shader_program.uSampler, 0);
+
+                if (blending) {
+                    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+                    gl.enable(gl.BLEND);
+                    gl.disable(gl.DEPTH_TEST);
+                    gl.uniform1f(shader_program.alphaUniform, 0.85);
+                } else {
+                    gl.disable(gl.BLEND);
+                    gl.enable(gl.DEPTH_TEST);
+                }
+
                 lights = vec3.normalize([xDir, yDir, zDir]);
+                vec3.scale(lights, -1);
                 gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
-                gl.uniform4fv(shader_program.colorLocation, [0.6, 0.1, 0.2, 1]);
+                gl.uniform3f(shader_program.directionalColorUniform, 0.9, 0.6, 0.2);
 
                 setMatrixUniforms();
                 gl.drawArrays(gl.TRIANGLES, 0, roofVertexPositionBuffer.numItems);
@@ -468,17 +850,36 @@
                 gl.bindBuffer(gl.ARRAY_BUFFER, roofVertexNormalBuffer);
                 gl.vertexAttribPointer(shader_program.vertexNormalAttribute, roofVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
                 
+                gl.bindBuffer(gl.ARRAY_BUFFER, pyrVertexTextureCoordBuffer);
+                gl.vertexAttribPointer(shader_program.textureCoord, 
+                pyrVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);    
+                
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, wallTexture);
+                gl.uniform1i(shader_program.uSampler, 0);
+
+                if (blending) {
+                    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+                    gl.enable(gl.BLEND);
+                    gl.disable(gl.DEPTH_TEST);
+                    gl.uniform1f(shader_program.alphaUniform, 0.7);
+                } else {
+                    gl.disable(gl.BLEND);
+                    gl.enable(gl.DEPTH_TEST);
+                }
+
                 lights = vec3.normalize([xDir, yDir, zDir]);
+                vec3.scale(lights, -1);
                 gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
-                gl.uniform4fv(shader_program.colorLocation, [0.6, 0.1, 0.7, 1]);
+                gl.uniform3f(shader_program.directionalColorUniform, 0.1, 0.1, 0.9);
 
                 setMatrixUniforms();
                 gl.drawArrays(gl.TRIANGLES, 0, roofVertexPositionBuffer.numItems);
             
                 mvPopMatrix();
-
+                
                 //////////////////////////////////
-
+                
                 ///////////////////////////
                 /////   HOUSE1       //////
                 ///////////////////////////
@@ -486,7 +887,7 @@
 
                 translate(-2.0, 0.0, hz1);       
                 rotateX(0);
-                rotateY(10);            
+                rotateY(40);            
                 
                 scale(0.5,0.5,0.5);
 
@@ -496,9 +897,36 @@
                 gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
                 gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
                 
+                gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexTextureCoordBuffer);
+                gl.vertexAttribPointer(shader_program.textureCoord, 
+                cubeVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, wallTexture);
+                gl.uniform1i(shader_program.uSampler, 0);
+
+                if (blending) {
+                    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+                    gl.enable(gl.BLEND);
+                    gl.disable(gl.DEPTH_TEST);
+                    gl.uniform1f(shader_program.alphaUniform, 0.6);
+                } else {
+                    gl.disable(gl.BLEND);
+                    gl.enable(gl.DEPTH_TEST);
+                }
+
                 lights = vec3.normalize([xDir, yDir, zDir]);
+                vec3.scale(lights, -1);
                 gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
-                gl.uniform4fv(shader_program.colorLocation, [0.6, 0.6, 0.2, 1]);
+                gl.uniform3f(shader_program.directionalColorUniform, 1.0, 0.1, 0.1);
+
+                if (aChecked) {
+                    gl.uniform3f(shader_program.ambientColorUniform, 
+                            1.0, 0.2, 0.2 );
+                } else {
+                    gl.uniform3f(shader_program.ambientColorUniform, 
+                            0.0, 0.0, 0.0 );
+                }
 
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
                 setMatrixUniforms();
@@ -524,9 +952,36 @@
                 gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
                 gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
                 
+                gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexTextureCoordBuffer);
+                gl.vertexAttribPointer(shader_program.textureCoord, 
+                cubeVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, wallTexture);
+                gl.uniform1i(shader_program.uSampler, 0);
+
+                if (blending) {
+                    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+                    gl.enable(gl.BLEND);
+                    gl.disable(gl.DEPTH_TEST);
+                    gl.uniform1f(shader_program.alphaUniform, 0.7);
+                } else {
+                    gl.disable(gl.BLEND);
+                    gl.enable(gl.DEPTH_TEST);
+                }
+
                 lights = vec3.normalize([xDir, yDir, zDir]);
+                vec3.scale(lights, -1);
                 gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
-                gl.uniform4fv(shader_program.colorLocation, [0.1, 0.6, 0.4, 1]);
+                gl.uniform3f(shader_program.directionalColorUniform, 0.1, 0.9, 0.6);
+
+                if (aChecked) {
+                    gl.uniform3f(shader_program.ambientColorUniform, 
+                            0.9, 0.3, 0.3 );
+                } else {
+                    gl.uniform3f(shader_program.ambientColorUniform, 
+                            0.0, 0.0, 0.0 );
+                }
 
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
                 setMatrixUniforms();
@@ -552,9 +1007,36 @@
                 gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
                 gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
                 
+                gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexTextureCoordBuffer);
+                gl.vertexAttribPointer(shader_program.textureCoord, 
+                cubeVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, pebbleTexture);
+                gl.uniform1i(shader_program.uSampler, 0);
+
+                if (blending) {
+                    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+                    gl.enable(gl.BLEND);
+                    gl.disable(gl.DEPTH_TEST);
+                    gl.uniform1f(shader_program.alphaUniform, 0.85);
+                } else {
+                    gl.disable(gl.BLEND);
+                    gl.enable(gl.DEPTH_TEST);
+                }
+
                 lights = vec3.normalize([xDir, yDir, zDir]);
+                vec3.scale(lights, -1);
                 gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
-                gl.uniform4fv(shader_program.colorLocation, [0.6, 0.1, 0.2, 1]);
+                gl.uniform3f(shader_program.directionalColorUniform, 0.9, 0.6, 0.2);
+
+                if (aChecked) {
+                    gl.uniform3f(shader_program.ambientColorUniform, 
+                            0.9, 0.3, 0.3 );
+                } else {
+                    gl.uniform3f(shader_program.ambientColorUniform, 
+                            0.0, 0.0, 0.0 );
+                }
 
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
                 setMatrixUniforms();
@@ -563,7 +1045,7 @@
                 mvPopMatrix();
 
                 //////////////////////////////////////
-
+                
                 ///////////////////////////
                 /////   HOUSE4       //////
                 ///////////////////////////
@@ -581,13 +1063,32 @@
                 gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexNormalBuffer);
                 gl.vertexAttribPointer(shader_program.vertexNormalAttribute, cubeVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
                 
+                gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexTextureCoordBuffer);
+                gl.vertexAttribPointer(shader_program.textureCoord, 
+                cubeVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, wallTexture);
+                gl.uniform1i(shader_program.uSampler, 0);
+
+                if (blending) {
+                    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+                    gl.enable(gl.BLEND);
+                    gl.disable(gl.DEPTH_TEST);
+                    gl.uniform1f(shader_program.alphaUniform, 0.8);
+                } else {
+                    gl.disable(gl.BLEND);
+                    gl.enable(gl.DEPTH_TEST);
+                }
+
                 lights = vec3.normalize([xDir, yDir, zDir]);
+                vec3.scale(lights, -1);
                 gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
-                gl.uniform4fv(shader_program.colorLocation, [0.6, 0.1, 0.7, 1]);
+                gl.uniform3f(shader_program.directionalColorUniform, 0.1, 0.1, 0.9);
 
                 if (aChecked) {
                     gl.uniform3f(shader_program.ambientColorUniform, 
-                            0.9, 0.3, 0.3 );
+                            0.1, 0.1, 0.1 );
                 } else {
                     gl.uniform3f(shader_program.ambientColorUniform, 
                             0.0, 0.0, 0.0 );
@@ -598,8 +1099,76 @@
                 gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 
                 mvPopMatrix();
-
+                
                 //////////////////////////////////////
+
+                ///////////////////////////
+                /////     SPHERE 1 ////////
+                ///////////////////////////
+                
+                mvPushMatrix();
+
+                translate(0.0, 0.0, -5.0);       
+                rotateX(0);
+                rotateY(15);            
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute, 
+                sphereVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, leavesTexture);
+                gl.uniform1i( shader_program.uSampler, 0);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexTextureCoordBuffer);
+                gl.vertexAttribPointer(shader_program.textureCoordAttribute, 
+                sphereVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexNormalBuffer);
+                gl.vertexAttribPointer(shader_program.vertexNormalAttribute, 
+                sphereVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+                /*
+
+                if (blending) {
+                    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+                    gl.enable(gl.BLEND);
+                    gl.disable(gl.DEPTH_TEST);
+                    gl.uniform1f(shader_program.alphaUniform, 0.8);
+                } else {
+                    gl.disable(gl.BLEND);
+                    gl.enable(gl.DEPTH_TEST);
+                }
+
+                lights = vec3.normalize([xDir, yDir, zDir]);
+                vec3.scale(lights, -1);
+                gl.uniform3fv(shader_program.lightingDirectionUniform, lights);
+                gl.uniform3f(shader_program.directionalColorUniform, 0.1, 0.1, 0.9);
+
+                if (aChecked) {
+                    gl.uniform3f(shader_program.ambientColorUniform, 
+                            0.1, 0.1, 0.1 );
+                } else {
+                    gl.uniform3f(shader_program.ambientColorUniform, 
+                            0.0, 0.0, 0.0 );
+                }
+                */
+
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphereVertexIndexBuffer);
+                setMatrixUniforms();
+                gl.drawElements(gl.TRIANGLES, sphereVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+                mvPopMatrix();
+
+                ///////////////////////////
+                /////     STARS    ////////
+                ///////////////////////////
+                var twinkle = true;
+                for (var i in stars) {
+                    stars[i].draw(tilt, spin, twinkle);
+                    spin += 0.1;
+                }
+
             }
 
         </script>
@@ -701,6 +1270,88 @@
             }
         </script>
         <script>
+            var stars = [];
+
+            function initWorldObjects() {
+                var numStars = 10;
+
+                for (var i = 0; i < numStars; i++) {
+                    stars.push(new Star((i/numStars) * 10.0, i / (numStars) ));
+                }
+            }
+
+            var zoom = -15;
+            var tilt = 90;
+            var spin = 0;
+
+            function Star(startingDistance, rotationSpeed) {
+                this.angle = 0;
+                this.dist = startingDistance;
+                this.rotationSpeed = rotationSpeed;
+
+                this.randomiseColors();
+            }
+
+            Star.prototype.draw = function(tilt, spin, twinkle) {
+                mvPushMatrix();
+
+                rotateY(this.angle);
+                translate(this.dist, 0.0, -15.0);
+
+                rotateY(-this.angle);
+                rotateX(-tilt);
+
+                if (twinkle) {
+                    gl.uniform3f(shader_program.directionalColorUniform, this.twinkleR, this.twinkleG, this.twinkleB);
+                    drawStar();
+                }
+
+                rotateY(spin);
+                gl.uniform3f(shader_program.ambientColorUniform, this.r, this.g, this.b);
+                drawStar();
+
+                mvPopMatrix();
+            }
+
+            var effectiveFPMS = 60 / 1000;
+            Star.prototype.animate = function(elapsedTime) {
+                this.angle += this.rotationSpeed * effectiveFPMS * elapsedTime;
+
+                this.dist -= 0.01 * effectiveFPMS * elapsedTime;
+                if (this.dist < 0.0) {
+                    this.dist += 10.0;
+                    this.randomiseColors();
+                }
+            }
+
+            Star.prototype.randomiseColors = function () {
+                this.r = Math.random();
+                this.b = Math.random();
+                this.g = Math.random();
+
+                this.twinkleR = Math.random();
+                this.twinkleB = Math.random();
+                this.twinkleG = Math.random();
+            }
+
+            function drawStar() {
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, starTexture);
+                gl.uniform1i(shader_program.uSampler, 0);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, starVertexTextureCoordBuffer);
+                gl.vertexAttribPointer(shader_program.textureCoord,
+                starVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, starVertexPositionBuffer);
+                gl.vertexAttribPointer(shader_program.vertexPositionAttribute,
+                starVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+                setMatrixUniforms();
+                gl.drawArrays(gl.TRIANGLE_STRIP, 0, starVertexPositionBuffer.numItems );
+            }
+        </script>
+        <script>
             function tick(){
                 requestAnimFrame(tick);
                 drawScene();
@@ -715,6 +1366,9 @@
 
                   //  rPyramid += (90 * elapsed)/1000.0;
                    // rCube -= (75 * elapsed)/1000.0;
+                   for (var i in stars) {
+                       stars[i].animate(elapsed);
+                   }
                 }
                 lastTime = timeNow;
             }
@@ -759,21 +1413,6 @@
             }
 
             var projection = 0;
-        </script>
-        <script>
-            function webGLStart() {
-                var canvas = document.getElementById("webgl-intro");
-                intiGL(canvas);
-                initShaders();
-                initBuffers();
-
-                gl.clearColor(0.0,1.0,0.5,1.0);
-                gl.enable(gl.DEPTH_TEST);
-
-                document.onkeypress = handleKeyPress;
-
-                tick();
-            }
         </script>
         <script>
             function createOrthographic(left, right, bottom, top, near, far) {
@@ -850,6 +1489,24 @@
                 mat4.multiply(pMatrix, oblique);
             }
 
+        </script>
+        <script>
+            function webGLStart() {
+                var canvas = document.getElementById("webgl-intro");
+                intiGL(canvas);
+                // gl.getExtension('OES_standard_derivatives');
+                initShaders();
+                initBuffers();
+                initTextures();
+                initWorldObjects();
+
+                gl.clearColor(0.0,0.0,0.0,1.0);
+                // gl.enable(gl.DEPTH_TEST);
+
+                document.onkeypress = handleKeyPress;
+
+                tick();
+            }
         </script>
     </head>
     <body onload="webGLStart();">
